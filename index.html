@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ChattingTerminalors</title>
+
+<style>
+@font-face {
+  font-family: Retro;
+  src: url("retro.ttf");
+}
+
+body {
+  margin: 0;
+  background: black;
+  color: #aaa;
+  font-family: Retro, monospace;
+  height: 100vh;
+  display: flex;
+}
+
+#users {
+  width: 220px;
+  border-right: 1px solid #222;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+#users h2 {
+  font-size: 14px;
+  color: #666;
+}
+
+.user {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+#terminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#output {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+#input {
+  background: black;
+  border: none;
+  border-top: 1px solid #222;
+  color: #aaa;
+  padding: 10px;
+  font-family: Retro, monospace;
+  outline: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="users">
+  <h2>USERS</h2>
+  <div id="userList"></div>
+</div>
+
+<div id="terminal">
+  <div id="output">
+ChattingTerminalors
+-------------------
+Global terminal chat
+Type and press ENTER
+
+  </div>
+  <input id="input" placeholder="> type here" autocomplete="off">
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* 🔴 PASTE YOUR FIREBASE CONFIG HERE */
+const firebaseConfig = {
+  apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
+  authDomain: "chattingterminalors.firebaseapp.com",
+  databaseURL: "https://chattingterminalors-default-rtdb.firebaseio.com",
+  projectId: "chattingterminalors",
+  storageBucket: "chattingterminalors.firebasestorage.app",
+  messagingSenderId: "913059668390",
+  appId: "1:913059668390:web:f4f4987bbe41e1f51e6f67"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ---------- SETUP ---------- */
+
+const output = document.getElementById("output");
+const input = document.getElementById("input");
+const userList = document.getElementById("userList");
+
+const badWords = ["fuck","shit","bitch","asshole","damn"];
+
+function censor(text) {
+  badWords.forEach(w => {
+    text = text.replace(new RegExp(w, "gi"), "####");
+  });
+  return text;
+}
+
+function randomColor() {
+  return `hsl(${Math.random()*360},70%,60%)`;
+}
+
+/* ---------- USER ---------- */
+
+let username = localStorage.getItem("ct_username");
+let color = localStorage.getItem("ct_color");
+
+if (!username) {
+  username = prompt("Enter username:");
+  if (!username) username = "guest";
+  color = randomColor();
+  localStorage.setItem("ct_username", username);
+  localStorage.setItem("ct_color", color);
+}
+
+/* ---------- PRESENCE ---------- */
+
+const userRef = db.ref("chattingterminalors/users/" + username);
+userRef.set({ name: username, color });
+userRef.onDisconnect().remove();
+
+/* ---------- USERS LIST ---------- */
+
+db.ref("chattingterminalors/users").on("value", snap => {
+  userList.innerHTML = "";
+  snap.forEach(child => {
+    const u = child.val();
+    const div = document.createElement("div");
+    div.className = "user";
+    div.style.color = u.color;
+    div.textContent = u.name;
+    userList.appendChild(div);
+  });
+});
+
+/* ---------- SEND ---------- */
+
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && input.value.trim()) {
+    db.ref("chattingterminalors/messages").push({
+      name: username,
+      color: color,
+      text: censor(input.value),
+      time: Date.now()
+    });
+    input.value = "";
+  }
+});
+
+/* ---------- RECEIVE ---------- */
+
+db.ref("chattingterminalors/messages")
+  .limitToLast(100)
+  .on("child_added", snap => {
+    const m = snap.val();
+    const line = document.createElement("div");
+    line.innerHTML =
+      `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  });
+</script>
+
+</body>
+</html>
