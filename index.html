@@ -115,6 +115,150 @@ function randomColor() {
   return `hsl(${Math.random()*360},70%,60%)`;
 }
 
+// Bot Message Helper
+function botMsg(text) {
+  const line = document.createElement("div");
+  line.innerHTML = `<span style="color:#00ff00">System32 [/]</span>: ${text}`;
+  output.appendChild(line);
+  output.scrollTop = output.scrollHeight;
+}
+
+/* ---------- USER ---------- */
+let username = localStorage.getItem("ct_username");
+let color = localStorage.getItem("ct_color");
+
+if (!username || username.includes("/")) {
+  if (username && username.includes("/")) {
+    alert("Username does not support slashes!");
+    localStorage.removeItem("ct_username");
+    localStorage.removeItem("ct_color");
+    location.reload();
+  } else {
+    username = prompt("Enter username:");
+    if (username && username.includes("/")) {
+      alert("Username does not support slashes!");
+      location.reload(); 
+    } else {
+      if (!username) username = "guest";
+      color = randomColor();
+      localStorage.setItem("ct_username", username);
+      localStorage.setItem("ct_color", color);
+    }
+  }
+}
+
+/* ---------- PRESENCE (USERS) ---------- */
+const userRef = db.ref("chattingterminalors/users").push();
+userRef.set({ name: username, color });
+userRef.onDisconnect().remove();
+
+/* ---------- USERS LIST ---------- */
+db.ref("chattingterminalors/users").on("value", snap => {
+  userList.innerHTML = "";
+  
+  // System32 always at top
+  const botDiv = document.createElement("div");
+  botDiv.className = "user";
+  botDiv.style.color = "#00ff00";
+  botDiv.textContent = "System32 [/]";
+  userList.appendChild(botDiv);
+
+  snap.forEach(child => {
+    const u = child.val();
+    const div = document.createElement("div");
+    div.className = "user";
+    div.style.color = u.color;
+    div.textContent = u.name;
+    userList.appendChild(div);
+  });
+});
+
+/* ---------- SEND & COMMANDS ---------- */
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && input.value.trim()) {
+    const val = input.value.trim();
+    
+    if (val === "/help") {
+      botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
+    } 
+    else if (val === "/info") {
+      botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
+    }
+    else if (val.startsWith("/color ")) {
+      const newCol = val.split(" ")[1];
+      if(newCol) {
+        color = newCol;
+        localStorage.setItem("ct_color", color);
+        userRef.update({ color: color });
+        botMsg("Your color has been changed to " + newCol + ".");
+      }
+    }
+    else if (val.startsWith("/name ")) {
+      const newName = val.split(" ")[1];
+      if (!newName) {
+          botMsg("Please provide a name.");
+      } else if (newName.includes("/")) {
+          botMsg("Error: Username cannot contain slashes.");
+      } else {
+          // Check if username is taken
+          db.ref("chattingterminalors/users").once("value", snap => {
+            let taken = false;
+            snap.forEach(child => {
+              if (child.val().name.toLowerCase() === newName.toLowerCase()) taken = true;
+            });
+            
+            if (taken) {
+              botMsg("Error: That username is already taken by someone else.");
+            } else {
+              username = newName;
+              localStorage.setItem("ct_username", username);
+              userRef.update({ name: username });
+              botMsg("Your username has been changed to " + newName + ".");
+            }
+          });
+      }
+    }
+    else {
+      db.ref("chattingterminalors/messages").push({
+        name: username,
+        color: color,
+        text: censor(val),
+        time: Date.now()
+      });
+    }
+    input.value = "";
+  }
+});
+
+/* ---------- RECEIVE ---------- */
+db.ref("chattingterminalors/messages")
+  .limitToLast(100)
+  .on("child_added", snap => {
+    const m = snap.val();
+    const line = document.createElement("div");
+    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  });
+</script>
+
+</body>
+</html>
+const userList = document.getElementById("userList");
+
+const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
+
+function censor(text) {
+  badWords.forEach(w => {
+    text = text.replace(new RegExp(w, "gi"), "####");
+  });
+  return text;
+}
+
+function randomColor() {
+  return `hsl(${Math.random()*360},70%,60%)`;
+}
+
 /* ---------- USER ---------- */
 let username = localStorage.getItem("ct_username");
 let color = localStorage.getItem("ct_color");
