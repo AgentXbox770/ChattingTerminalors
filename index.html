@@ -4,36 +4,232 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChattingTerminalors</title>
-<link rel="icon" type="image/x-icon" href="logo.ico?v=5">
+<link rel="icon" type="image/x-icon" href="logo.ico?v=8">
 
 <style>
-/* 1. RESET & FONT */
-@font-face {
-  font-family: Retro;
-  src: url("retro.ttf");
+@font-face { font-family: Retro; src: url("retro.ttf"); }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; background: black; color: #aaa; font-family: Retro, monospace; height: 100vh; width: 100vw; display: flex; overflow: hidden; }
+
+/* LOADING SCREEN */
+#loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; color: #00ff00; display: flex; justify-content: center; align-items: center; font-size: 24px; z-index: 10000; }
+
+/* SIDEBAR */
+#users { width: 220px; min-width: 220px; height: 100%; border-right: 1px solid #333; padding: 10px; overflow-y: auto; background: #050505; display: none; }
+#users h2 { font-size: 14px; color: #666; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+.user { font-size: 13px; margin-bottom: 5px; transition: opacity 0.3s; }
+
+/* TERMINAL AREA */
+#terminal { flex: 1; position: relative; height: 100%; background: black; display: none; flex-direction: column; }
+#output { flex: 1; padding: 15px; padding-bottom: 60px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; }
+
+/* INPUT BAR */
+#input { position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background: #111; border: none; border-top: 2px solid #00ff00; color: #00ff00; padding: 15px; font-family: Retro, monospace; font-size: 16px; outline: none; z-index: 9999; }
+</style>
+</head>
+
+<body>
+
+<div id="loading">Loading... |</div>
+
+<div id="users">
+  <h2>USERS</h2>
+  <div id="userList"></div>
+</div>
+
+<div id="terminal">
+  <div id="output">
+ChattingTerminalors
+-------------------
+Global terminal chat
+Type /help for commands
+  </div>
+  <input id="input" placeholder="> type here..." autocomplete="off">
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* --- OWNER CONFIG --- */
+const OWNER_NAME = "👑AgentXbox👑"; // 🔴 CHANGE THIS TO YOUR EXACT NAME
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
+  authDomain: "chattingterminalors.firebaseapp.com",
+  databaseURL: "https://chattingterminalors-default-rtdb.firebaseio.com",
+  projectId: "chattingterminalors",
+  storageBucket: "chattingterminalors.firebasestorage.app",
+  messagingSenderId: "913059668390",
+  appId: "1:913059668390:web:f4f4987bbe41e1f51e6f67"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const output = document.getElementById("output");
+const input = document.getElementById("input");
+const userList = document.getElementById("userList");
+const loadingScreen = document.getElementById("loading");
+const usersDiv = document.getElementById("users");
+const terminalDiv = document.getElementById("terminal");
+
+const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
+const launchDate = new Date("2026-02-10T00:00:00").getTime(); 
+
+/* --- LOADING ANIMATION --- */
+let loadFrame = 0;
+const loadChars = ["|", "/", "-"];
+const loadInterval = setInterval(() => {
+  loadingScreen.textContent = "Loading... " + loadChars[loadFrame];
+  loadFrame = (loadFrame + 1) % loadChars.length;
+}, 700);
+
+/* --- UTILS --- */
+function censor(text) {
+  badWords.forEach(w => { text = text.replace(new RegExp(w, "gi"), "####"); });
+  return text;
+}
+function botMsg(text) {
+  const line = document.createElement("div");
+  line.style.margin = "5px 0";
+  line.innerHTML = `<span style="color:#00ff00">System32 [/]</span>: ${text}`;
+  output.appendChild(line);
+  output.scrollTop = output.scrollHeight;
 }
 
-* {
-  box-sizing: border-box;
+function formatUptime(ms) {
+  const seconds = Math.floor((ms / 1000) % 60);
+  const minutes = Math.floor((ms / (1000 * 60)) % 60);
+  const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  return `${days} days, ${hours} hours, ${minutes} minutes`;
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  background: black;
-  color: #aaa;
-  font-family: Retro, monospace;
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  overflow: hidden;
+/* --- LOGIN --- */
+let username = localStorage.getItem("ct_username");
+let color = localStorage.getItem("ct_color") || `hsl(${Math.random()*360},70%,60%)`;
+
+if (!username || username.includes("/")) {
+    username = prompt("Enter username:");
+    if (!username || username.includes("/")) { alert("Invalid name!"); location.reload(); }
+    localStorage.setItem("ct_username", username);
+    localStorage.setItem("ct_color", color);
 }
 
-/* 2. LOADING SCREEN */
-#loading {
-  position: absolute;
-  top: 0;
-  left: 0;
+const userRef = db.ref("chattingterminalors/users").push();
+userRef.set({ name: username, color: color });
+userRef.onDisconnect().remove();
+
+/* --- REBOOT LISTENER --- */
+db.ref("chattingterminalors/reboot").on("value", snap => {
+  if (snap.val() === true) {
+    botMsg("CRITICAL: Server rebooting. Connection severed.");
+    input.disabled = true;
+    input.style.display = "none";
+    
+    const users = document.querySelectorAll(".user");
+    users.forEach((el, i) => {
+      setTimeout(() => { el.style.opacity = "0"; }, i * 300);
+    });
+  } else {
+    input.disabled = false;
+    input.style.display = "block";
+  }
+});
+
+/* --- DATA HANDLERS --- */
+db.ref("chattingterminalors/users").on("value", snap => {
+  if (loadingScreen.style.display !== "none") {
+    clearInterval(loadInterval);
+    loadingScreen.style.display = "none";
+    usersDiv.style.display = "block";
+    terminalDiv.style.display = "flex";
+  }
+  userList.innerHTML = "";
+  const botDiv = document.createElement("div");
+  botDiv.className = "user"; botDiv.style.color = "#00ff00"; botDiv.textContent = "System32 [/]";
+  userList.appendChild(botDiv);
+
+  snap.forEach(child => {
+    const u = child.val();
+    const div = document.createElement("div");
+    div.className = "user"; div.style.color = u.color; div.textContent = u.name;
+    userList.appendChild(div);
+  });
+});
+
+db.ref("chattingterminalors/messages").limitToLast(100).on("child_added", snap => {
+    const m = snap.val();
+    const line = document.createElement("div");
+    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+});
+
+/* --- INPUT --- */
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && input.value.trim()) {
+    const val = input.value.trim();
+    
+    // RESTORED HELP MESSAGE
+    if (val === "/help") {
+      botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n/uptime - shows how long the website is public.\n/clear - clear all messages (local)\n/reset - resets your connection.\n\nBot officially created by Agentxbox, Createz.");
+    } 
+    // RESTORED INFO MESSAGE
+    else if (val === "/info") {
+      botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and GitHub Pages.");
+    }
+    else if (val === "/rebootserver") {
+      if (username === OWNER_NAME) {
+        db.ref("chattingterminalors/reboot").set(true);
+        botMsg("Reboot signal sent to all clients.");
+        setTimeout(() => { db.ref("chattingterminalors/reboot").set(false); }, 10000);
+      } else {
+        botMsg("Error: Unauthorized access.");
+      }
+    }
+    else if (val === "/uptime") {
+      const diff = Date.now() - launchDate;
+      botMsg("Website Uptime: " + formatUptime(diff));
+    }
+    else if (val === "/clear") {
+      output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat\nType /help for commands\n";
+    }
+    else if (val === "/reset") {
+      botMsg("Resetting connection...");
+      setTimeout(() => location.reload(), 1000);
+    }
+    else if (val.startsWith("/color ")) {
+      const newCol = val.split(" ")[1];
+      if(newCol) {
+        color = newCol;
+        localStorage.setItem("ct_color", color);
+        userRef.update({ color: color });
+        botMsg("Your color has been changed to " + newCol + ".");
+      }
+    }
+    else if (val.startsWith("/name ")) {
+      const parts = val.split(" ");
+      const newName = parts.slice(1).join(" ");
+      if (newName && !newName.includes("/")) {
+          username = newName;
+          localStorage.setItem("ct_username", username);
+          userRef.update({ name: username });
+          botMsg("Your username has been changed to " + newName + ".");
+      } else {
+          botMsg("Invalid name.");
+      }
+    }
+    else {
+      db.ref("chattingterminalors/messages").push({ name: username, color: color, text: censor(val), time: Date.now() });
+    }
+    input.value = "";
+  }
+});
+</script>
+</body>
+</html>
   width: 100%;
   height: 100%;
   background: black;
