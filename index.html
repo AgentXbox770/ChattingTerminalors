@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChattingTerminalors</title>
-<link rel="icon" type="image/x-icon" href="logo.ico?v=4">
+<link rel="icon" type="image/x-icon" href="logo.ico?v=5">
 
 <style>
 /* 1. RESET & FONT */
@@ -29,7 +29,23 @@ body {
   overflow: hidden;
 }
 
-/* 2. SIDEBAR (USERS) */
+/* 2. LOADING SCREEN */
+#loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  color: #00ff00;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  z-index: 10000; /* On top of everything */
+}
+
+/* 3. SIDEBAR (USERS) */
 #users {
   width: 220px;
   min-width: 220px;
@@ -38,6 +54,7 @@ body {
   padding: 10px;
   overflow-y: auto;
   background: #050505;
+  display: none; /* Hidden until loaded */
 }
 
 #users h2 {
@@ -53,46 +70,48 @@ body {
   margin-bottom: 5px;
 }
 
-/* 3. TERMINAL AREA */
+/* 4. TERMINAL AREA */
 #terminal {
   flex: 1;
-  position: relative; /* Needed for the input to stick inside here */
+  position: relative;
   height: 100%;
   background: black;
-  display: flex;
+  display: none; /* Hidden until loaded */
   flex-direction: column;
 }
 
 #output {
   flex: 1;
   padding: 15px;
-  padding-bottom: 60px; /* Space for the input bar so text isn't hidden */
+  padding-bottom: 60px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
-/* 4. PINNED INPUT BAR (THE FIX) */
+/* 5. INPUT BAR */
 #input {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 50px; /* Fixed height */
+  height: 50px;
   background: #111;
   border: none;
-  border-top: 2px solid #00ff00; /* Bright green line so you see it */
-  color: #00ff00; /* Green text to make sure you see what you type */
+  border-top: 2px solid #00ff00;
+  color: #00ff00;
   padding: 15px;
   font-family: Retro, monospace;
   font-size: 16px;
   outline: none;
-  z-index: 9999; /* Forces it to sit on top of everything */
+  z-index: 9999;
 }
 </style>
 </head>
 
 <body>
+
+<div id="loading">Loading... |</div>
 
 <div id="users">
   <h2>USERS</h2>
@@ -131,9 +150,22 @@ const db = firebase.database();
 const output = document.getElementById("output");
 const input = document.getElementById("input");
 const userList = document.getElementById("userList");
+const loadingScreen = document.getElementById("loading");
+const usersDiv = document.getElementById("users");
+const terminalDiv = document.getElementById("terminal");
 
 const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
+const launchDate = new Date("2023-12-01T00:00:00").getTime(); // Fake launch date for "Uptime"
 
+/* ---------- LOADING ANIMATION ---------- */
+let loadFrame = 0;
+const loadChars = ["|", "/", "-"];
+const loadInterval = setInterval(() => {
+  loadingScreen.textContent = "Loading... " + loadChars[loadFrame];
+  loadFrame = (loadFrame + 1) % loadChars.length;
+}, 700); // 0.7 seconds
+
+/* ---------- UTILS ---------- */
 function censor(text) {
   badWords.forEach(w => {
     text = text.replace(new RegExp(w, "gi"), "####");
@@ -153,7 +185,15 @@ function botMsg(text) {
   output.scrollTop = output.scrollHeight;
 }
 
-/* LOGIN */
+function formatUptime(ms) {
+  const seconds = Math.floor((ms / 1000) % 60);
+  const minutes = Math.floor((ms / (1000 * 60)) % 60);
+  const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  return `${days} days, ${hours} hours, ${minutes} minutes`;
+}
+
+/* ---------- LOGIN ---------- */
 let username = localStorage.getItem("ct_username");
 let color = localStorage.getItem("ct_color");
 
@@ -164,6 +204,8 @@ if (!username || username.includes("/")) {
     localStorage.removeItem("ct_color");
     location.reload();
   } else {
+    // Hide loader temporarily for prompt if needed, 
+    // but usually prompt pauses JS execution anyway.
     username = prompt("Enter username:");
     if (username && username.includes("/")) {
       alert("Username does not support slashes!");
@@ -181,10 +223,18 @@ const userRef = db.ref("chattingterminalors/users").push();
 userRef.set({ name: username, color: color });
 userRef.onDisconnect().remove();
 
-/* USERS LIST */
+/* ---------- DATA HANDLERS ---------- */
+// Users
 db.ref("chattingterminalors/users").on("value", snap => {
+  // STOP LOADING SCREEN ONCE DATA ARRIVES
+  if (loadingScreen.style.display !== "none") {
+    clearInterval(loadInterval);
+    loadingScreen.style.display = "none";
+    usersDiv.style.display = "block";
+    terminalDiv.style.display = "flex";
+  }
+
   userList.innerHTML = "";
-  
   const botDiv = document.createElement("div");
   botDiv.className = "user";
   botDiv.style.color = "#00ff00";
@@ -201,17 +251,49 @@ db.ref("chattingterminalors/users").on("value", snap => {
   });
 });
 
-/* INPUT HANDLER */
+// Messages
+db.ref("chattingterminalors/messages")
+  .limitToLast(100)
+  .on("child_added", snap => {
+    const m = snap.val();
+    const line = document.createElement("div");
+    line.style.marginBottom = "4px";
+    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  });
+
+/* ---------- INPUT & COMMANDS ---------- */
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
-    // Commands
+    // COMMANDS
     if (val === "/help") {
-      botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
+      botMsg(
+        "/help - shows this message\n" +
+        "/color [color] - set your username color\n" +
+        "/name [new username] - set a new username for you.\n" +
+        "/info - see info of website.\n" +
+        "/uptime - shows how long the website is public.\n" +
+        "/clear - clear all messages (local)\n" +
+        "/reset - resets your connection.\n\n" +
+        "Bot officially created by Agentxbox, Createz."
+      );
     } 
     else if (val === "/info") {
       botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
+    }
+    else if (val === "/uptime") {
+      const diff = Date.now() - launchDate;
+      botMsg("Website Uptime: " + formatUptime(diff));
+    }
+    else if (val === "/clear") {
+      output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat\nType /help for commands\n";
+    }
+    else if (val === "/reset") {
+      botMsg("Resetting connection...");
+      setTimeout(() => location.reload(), 1000);
     }
     else if (val.startsWith("/color ")) {
       const newCol = val.split(" ")[1];
@@ -251,7 +333,7 @@ input.addEventListener("keydown", e => {
           });
       }
     }
-    // Message
+    // NORMAL MESSAGE
     else {
       db.ref("chattingterminalors/messages").push({
         name: username,
@@ -263,18 +345,6 @@ input.addEventListener("keydown", e => {
     input.value = "";
   }
 });
-
-/* RECEIVER */
-db.ref("chattingterminalors/messages")
-  .limitToLast(100)
-  .on("child_added", snap => {
-    const m = snap.val();
-    const line = document.createElement("div");
-    line.style.marginBottom = "4px";
-    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
-    output.appendChild(line);
-    output.scrollTop = output.scrollHeight;
-  });
 </script>
 
 </body>
