@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>ChattingTerminalors</title>
+<link rel="icon" type="image/x-icon" href="logo.ico">
 
 <style>
 @font-face {
@@ -79,7 +80,6 @@ Type and press ENTER
   <input id="input" placeholder="> type here" autocomplete="off">
 </div>
 
-<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -101,6 +101,79 @@ const db = firebase.database();
 const output = document.getElementById("output");
 const input = document.getElementById("input");
 const userList = document.getElementById("userList");
+
+const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
+
+function censor(text) {
+  badWords.forEach(w => {
+    text = text.replace(new RegExp(w, "gi"), "####");
+  });
+  return text;
+}
+
+function randomColor() {
+  return `hsl(${Math.random()*360},70%,60%)`;
+}
+
+/* ---------- USER ---------- */
+let username = localStorage.getItem("ct_username");
+let color = localStorage.getItem("ct_color");
+
+if (!username) {
+  username = prompt("Enter username:");
+  if (!username) username = "guest";
+  color = randomColor();
+  localStorage.setItem("ct_username", username);
+  localStorage.setItem("ct_color", color);
+}
+
+/* ---------- PRESENCE (USERS) ---------- */
+// Use push() to ensure unique key for each user
+const userRef = db.ref("chattingterminalors/users").push();
+userRef.set({ name: username, color });
+userRef.onDisconnect().remove();
+
+/* ---------- USERS LIST ---------- */
+db.ref("chattingterminalors/users").on("value", snap => {
+  userList.innerHTML = "";
+  snap.forEach(child => {
+    const u = child.val();
+    const div = document.createElement("div");
+    div.className = "user";
+    div.style.color = u.color;
+    div.textContent = u.name;
+    userList.appendChild(div);
+  });
+});
+
+/* ---------- SEND ---------- */
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && input.value.trim()) {
+    db.ref("chattingterminalors/messages").push({
+      name: username,
+      color: color,
+      text: censor(input.value),
+      time: Date.now()
+    });
+    input.value = "";
+  }
+});
+
+/* ---------- RECEIVE ---------- */
+db.ref("chattingterminalors/messages")
+  .limitToLast(100)
+  .on("child_added", snap => {
+    const m = snap.val();
+    const line = document.createElement("div");
+    line.innerHTML =
+      `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  });
+</script>
+
+</body>
+</html>
 
 const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
 
