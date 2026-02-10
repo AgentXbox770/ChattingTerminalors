@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChattingTerminalors</title>
-<link rel="icon" type="image/x-icon" href="logo.ico?v=3">
+<link rel="icon" type="image/x-icon" href="logo.ico?v=4">
 
 <style>
 /* 1. RESET & FONT */
@@ -25,16 +25,16 @@ body {
   font-family: Retro, monospace;
   height: 100vh;
   width: 100vw;
-  display: flex; /* Creates the side-by-side layout */
+  display: flex;
   overflow: hidden;
 }
 
-/* 2. LEFT SIDEBAR (USERS) */
+/* 2. SIDEBAR (USERS) */
 #users {
   width: 220px;
   min-width: 220px;
   height: 100%;
-  border-right: 1px solid #222;
+  border-right: 1px solid #333;
   padding: 10px;
   overflow-y: auto;
   background: #050505;
@@ -44,7 +44,7 @@ body {
   font-size: 14px;
   color: #666;
   margin-top: 0;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid #333;
   padding-bottom: 5px;
 }
 
@@ -53,32 +53,41 @@ body {
   margin-bottom: 5px;
 }
 
-/* 3. RIGHT MAIN AREA (TERMINAL) */
+/* 3. TERMINAL AREA */
 #terminal {
-  flex: 1; /* Takes up remaining space */
-  display: flex;
-  flex-direction: column;
+  flex: 1;
+  position: relative; /* Needed for the input to stick inside here */
   height: 100%;
   background: black;
+  display: flex;
+  flex-direction: column;
 }
 
 #output {
   flex: 1;
   padding: 15px;
+  padding-bottom: 60px; /* Space for the input bar so text isn't hidden */
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
+/* 4. PINNED INPUT BAR (THE FIX) */
 #input {
-  background: #0a0a0a;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50px; /* Fixed height */
+  background: #111;
   border: none;
-  border-top: 1px solid #222;
-  color: #aaa;
+  border-top: 2px solid #00ff00; /* Bright green line so you see it */
+  color: #00ff00; /* Green text to make sure you see what you type */
   padding: 15px;
   font-family: Retro, monospace;
+  font-size: 16px;
   outline: none;
-  width: 100%;
+  z-index: 9999; /* Forces it to sit on top of everything */
 }
 </style>
 </head>
@@ -97,14 +106,13 @@ ChattingTerminalors
 Global terminal chat
 Type /help for commands
   </div>
-  <input id="input" placeholder="> type here" autocomplete="off">
+  <input id="input" placeholder="> type here..." autocomplete="off">
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
   authDomain: "chattingterminalors.firebaseapp.com",
@@ -120,14 +128,12 @@ if (!firebase.apps.length) {
 }
 const db = firebase.database();
 
-/* VARIABLES */
 const output = document.getElementById("output");
 const input = document.getElementById("input");
 const userList = document.getElementById("userList");
 
 const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
 
-/* FUNCTIONS */
 function censor(text) {
   badWords.forEach(w => {
     text = text.replace(new RegExp(w, "gi"), "####");
@@ -147,11 +153,10 @@ function botMsg(text) {
   output.scrollTop = output.scrollHeight;
 }
 
-/* LOGIN LOGIC */
+/* LOGIN */
 let username = localStorage.getItem("ct_username");
 let color = localStorage.getItem("ct_color");
 
-// Slash Check & Init
 if (!username || username.includes("/")) {
   if (username && username.includes("/")) {
     alert("Username does not support slashes!");
@@ -172,23 +177,20 @@ if (!username || username.includes("/")) {
   }
 }
 
-// Add user to database
 const userRef = db.ref("chattingterminalors/users").push();
 userRef.set({ name: username, color: color });
 userRef.onDisconnect().remove();
 
-/* UPDATE USER LIST */
+/* USERS LIST */
 db.ref("chattingterminalors/users").on("value", snap => {
   userList.innerHTML = "";
   
-  // 1. System32 Bot (Top)
   const botDiv = document.createElement("div");
   botDiv.className = "user";
   botDiv.style.color = "#00ff00";
   botDiv.textContent = "System32 [/]";
   userList.appendChild(botDiv);
 
-  // 2. Real Users
   snap.forEach(child => {
     const u = child.val();
     const div = document.createElement("div");
@@ -199,20 +201,18 @@ db.ref("chattingterminalors/users").on("value", snap => {
   });
 });
 
-/* COMMANDS & MESSAGING */
+/* INPUT HANDLER */
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
-    // /HELP
+    // Commands
     if (val === "/help") {
       botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
     } 
-    // /INFO
     else if (val === "/info") {
       botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
     }
-    // /COLOR
     else if (val.startsWith("/color ")) {
       const newCol = val.split(" ")[1];
       if(newCol) {
@@ -222,7 +222,6 @@ input.addEventListener("keydown", e => {
         botMsg("Your color has been changed to " + newCol + ".");
       }
     }
-    // /NAME
     else if (val.startsWith("/name ")) {
       const parts = val.split(" ");
       const newName = parts.slice(1).join(" ");
@@ -232,7 +231,6 @@ input.addEventListener("keydown", e => {
       } else if (newName.includes("/")) {
           botMsg("Error: Username cannot contain slashes.");
       } else {
-          // Check if taken
           db.ref("chattingterminalors/users").once("value", snap => {
             let taken = false;
             snap.forEach(child => {
@@ -253,7 +251,7 @@ input.addEventListener("keydown", e => {
           });
       }
     }
-    // NORMAL MESSAGE
+    // Message
     else {
       db.ref("chattingterminalors/messages").push({
         name: username,
@@ -266,7 +264,7 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* RECEIVE MESSAGES */
+/* RECEIVER */
 db.ref("chattingterminalors/messages")
   .limitToLast(100)
   .on("child_added", snap => {
