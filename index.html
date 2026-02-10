@@ -2,33 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChattingTerminalors</title>
-<link rel="icon" type="image/x-icon" href="logo.ico?v=1">
+<link rel="icon" type="image/x-icon" href="logo.ico?v=2">
 
 <style>
+/* FONT LOADING */
 @font-face {
   font-family: Retro;
   src: url("retro.ttf");
 }
 
+/* GLOBAL LAYOUT FIXES */
 body {
   margin: 0;
+  padding: 0;
   background: black;
   color: #aaa;
   font-family: Retro, monospace;
   height: 100vh;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
+  width: 100vw;
+  display: flex; /* This makes the users and terminal sit side-by-side */
+  overflow: hidden; /* Prevents double scrollbars */
 }
 
+/* SIDEBAR (USERS) */
 #users {
   width: 220px;
-  min-width: 220px;
+  min-width: 220px; /* Forces sidebar to stay 220px */
   border-right: 1px solid #222;
   padding: 10px;
   overflow-y: auto;
-  background: black;
+  background: #050505;
   box-sizing: border-box;
 }
 
@@ -36,6 +41,8 @@ body {
   font-size: 14px;
   color: #666;
   margin-top: 0;
+  border-bottom: 1px solid #222;
+  padding-bottom: 5px;
 }
 
 .user {
@@ -43,222 +50,13 @@ body {
   margin-bottom: 5px;
 }
 
+/* MAIN CHAT AREA */
 #terminal {
-  flex: 1;
+  flex: 1; /* This forces the chat to take up the REST of the screen */
   display: flex;
   flex-direction: column;
   background: black;
   height: 100%;
-}
-
-#output {
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-#input {
-  background: black;
-  border: none;
-  border-top: 1px solid #222;
-  color: #aaa;
-  padding: 15px;
-  font-family: Retro, monospace;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-}
-</style>
-</head>
-
-<body>
-
-<div id="users">
-  <h2>USERS</h2>
-  <div id="userList"></div>
-</div>
-
-<div id="terminal">
-  <div id="output">
-ChattingTerminalors
--------------------
-Global terminal chat
-Type /help for commands
-  </div>
-  <input id="input" placeholder="> type here" autocomplete="off">
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
-  authDomain: "chattingterminalors.firebaseapp.com",
-  databaseURL: "https://chattingterminalors-default-rtdb.firebaseio.com",
-  projectId: "chattingterminalors",
-  storageBucket: "chattingterminalors.firebasestorage.app",
-  messagingSenderId: "913059668390",
-  appId: "1:913059668390:web:f4f4987bbe41e1f51e6f67"
-};
-
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.database();
-
-const output = document.getElementById("output");
-const input = document.getElementById("input");
-const userList = document.getElementById("userList");
-
-const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
-
-function censor(text) {
-  badWords.forEach(w => {
-    text = text.replace(new RegExp(w, "gi"), "####");
-  });
-  return text;
-}
-
-function randomColor() {
-  return `hsl(${Math.random()*360},70%,60%)`;
-}
-
-function botMsg(text) {
-  const line = document.createElement("div");
-  line.style.margin = "5px 0";
-  line.innerHTML = `<span style="color:#00ff00">System32 [/]</span>: ${text}`;
-  output.appendChild(line);
-  output.scrollTop = output.scrollHeight;
-}
-
-let username = localStorage.getItem("ct_username");
-let color = localStorage.getItem("ct_color");
-
-if (!username || username.includes("/")) {
-  if (username && username.includes("/")) {
-    alert("Username does not support slashes!");
-    localStorage.removeItem("ct_username");
-    localStorage.removeItem("ct_color");
-    location.reload();
-  } else {
-    username = prompt("Enter username:");
-    if (username && username.includes("/")) {
-      alert("Username does not support slashes!");
-      location.reload(); 
-    } else {
-      if (!username) username = "guest" + Math.floor(Math.random()*1000);
-      color = randomColor();
-      localStorage.setItem("ct_username", username);
-      localStorage.setItem("ct_color", color);
-    }
-  }
-}
-
-const userRef = db.ref("chattingterminalors/users").push();
-userRef.set({ name: username, color: color });
-userRef.onDisconnect().remove();
-
-db.ref("chattingterminalors/users").on("value", snap => {
-  userList.innerHTML = "";
-  const botDiv = document.createElement("div");
-  botDiv.className = "user";
-  botDiv.style.color = "#00ff00";
-  botDiv.textContent = "System32 [/]";
-  userList.appendChild(botDiv);
-
-  snap.forEach(child => {
-    const u = child.val();
-    const div = document.createElement("div");
-    div.className = "user";
-    div.style.color = u.color;
-    div.textContent = u.name;
-    userList.appendChild(div);
-  });
-});
-
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && input.value.trim()) {
-    const val = input.value.trim();
-    
-    if (val === "/help") {
-      botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
-    } 
-    else if (val === "/info") {
-      botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
-    }
-    else if (val.startsWith("/color ")) {
-      const newCol = val.split(" ")[1];
-      if(newCol) {
-        color = newCol;
-        localStorage.setItem("ct_color", color);
-        userRef.update({ color: color });
-        botMsg("Your color has been changed to " + newCol + ".");
-      }
-    }
-    else if (val.startsWith("/name ")) {
-      const newName = val.split(" ")[1];
-      if (!newName) {
-          botMsg("Please provide a name.");
-      } else if (newName.includes("/")) {
-          botMsg("Error: Username cannot contain slashes.");
-      } else {
-          db.ref("chattingterminalors/users").once("value", snap => {
-            let taken = false;
-            snap.forEach(child => {
-              if (child.val().name && child.val().name.toLowerCase() === newName.toLowerCase()) taken = true;
-            });
-            
-            if (taken) {
-              botMsg("Error: That username is already taken by someone else.");
-            } else {
-              username = newName;
-              localStorage.setItem("ct_username", username);
-              userRef.update({ name: username });
-              botMsg("Your username has been changed to " + newName + ".");
-            }
-          });
-      }
-    }
-    else {
-      db.ref("chattingterminalors/messages").push({
-        name: username,
-        color: color,
-        text: censor(val),
-        time: Date.now()
-      });
-    }
-    input.value = "";
-  }
-});
-
-db.ref("chattingterminalors/messages")
-  .limitToLast(100)
-  .on("child_added", snap => {
-    const m = snap.val();
-    const line = document.createElement("div");
-    line.style.marginBottom = "4px";
-    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
-    output.appendChild(line);
-    output.scrollTop = output.scrollHeight;
-  });
-</script>
-
-</body>
-</html>
-
-.user {
-  font-size: 13px;
-  margin-bottom: 5px;
-}
-
-#terminal {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: black;
 }
 
 #output {
@@ -304,7 +102,7 @@ Type /help for commands
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* 🔴 FIREBASE CONFIG */
+/* 🔴 FIREBASE CONFIGURATION */
 const firebaseConfig = {
   apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
   authDomain: "chattingterminalors.firebaseapp.com",
@@ -315,19 +113,20 @@ const firebaseConfig = {
   appId: "1:913059668390:web:f4f4987bbe41e1f51e6f67"
 };
 
-// Initialize Firebase only if it hasn't been initialized
+// Prevent double initialization
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
 
-/* ---------- SETUP ---------- */
+/* ---------- ELEMENTS ---------- */
 const output = document.getElementById("output");
 const input = document.getElementById("input");
 const userList = document.getElementById("userList");
 
-const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
+const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
 
+/* ---------- UTILS ---------- */
 function censor(text) {
   badWords.forEach(w => {
     text = text.replace(new RegExp(w, "gi"), "####");
@@ -347,11 +146,10 @@ function botMsg(text) {
   output.scrollTop = output.scrollHeight;
 }
 
-/* ---------- USER LOGIC ---------- */
+/* ---------- LOGIN & SLASH PROTECTION ---------- */
 let username = localStorage.getItem("ct_username");
 let color = localStorage.getItem("ct_color");
 
-// Slash Protection & Identity
 if (!username || username.includes("/")) {
   if (username && username.includes("/")) {
     alert("Username does not support slashes!");
@@ -360,6 +158,8 @@ if (!username || username.includes("/")) {
     location.reload();
   } else {
     username = prompt("Enter username:");
+    
+    // Immediate check after prompt
     if (username && username.includes("/")) {
       alert("Username does not support slashes!");
       location.reload(); 
@@ -377,17 +177,18 @@ const userRef = db.ref("chattingterminalors/users").push();
 userRef.set({ name: username, color: color });
 userRef.onDisconnect().remove();
 
-/* ---------- USERS LIST UI ---------- */
+/* ---------- USER LIST LOGIC ---------- */
 db.ref("chattingterminalors/users").on("value", snap => {
   userList.innerHTML = "";
   
-  // Always keep System32 at the top
+  // 1. Manually add System32 at the top
   const botDiv = document.createElement("div");
   botDiv.className = "user";
   botDiv.style.color = "#00ff00";
   botDiv.textContent = "System32 [/]";
   userList.appendChild(botDiv);
 
+  // 2. Add real users
   snap.forEach(child => {
     const u = child.val();
     const div = document.createElement("div");
@@ -398,17 +199,20 @@ db.ref("chattingterminalors/users").on("value", snap => {
   });
 });
 
-/* ---------- SEND & COMMANDS ---------- */
+/* ---------- CHAT & COMMANDS ---------- */
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
+    // Command: HELP
     if (val === "/help") {
       botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
     } 
+    // Command: INFO
     else if (val === "/info") {
       botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
     }
+    // Command: COLOR
     else if (val.startsWith("/color ")) {
       const newCol = val.split(" ")[1];
       if(newCol) {
@@ -418,17 +222,21 @@ input.addEventListener("keydown", e => {
         botMsg("Your color has been changed to " + newCol + ".");
       }
     }
+    // Command: NAME
     else if (val.startsWith("/name ")) {
-      const newName = val.split(" ")[1];
+      const parts = val.split(" ");
+      const newName = parts.slice(1).join(" "); // Get everything after "/name"
+      
       if (!newName) {
           botMsg("Please provide a name.");
       } else if (newName.includes("/")) {
           botMsg("Error: Username cannot contain slashes.");
       } else {
+          // Check if taken
           db.ref("chattingterminalors/users").once("value", snap => {
             let taken = false;
             snap.forEach(child => {
-              if (child.val().name.toLowerCase() === newName.toLowerCase()) taken = true;
+              if (child.val().name && child.val().name.toLowerCase() === newName.toLowerCase()) taken = true;
             });
             
             if (taken) {
@@ -442,6 +250,7 @@ input.addEventListener("keydown", e => {
           });
       }
     }
+    // Normal Message
     else {
       db.ref("chattingterminalors/messages").push({
         name: username,
@@ -454,7 +263,7 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* ---------- MESSAGE RECEIVER ---------- */
+/* ---------- INCOMING MESSAGES ---------- */
 db.ref("chattingterminalors/messages")
   .limitToLast(100)
   .on("child_added", snap => {
@@ -462,290 +271,6 @@ db.ref("chattingterminalors/messages")
     const line = document.createElement("div");
     line.style.marginBottom = "4px";
     line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
-    output.appendChild(line);
-    output.scrollTop = output.scrollHeight;
-  });
-</script>
-
-</body>
-</html>
-  margin-bottom: 5px;
-}
-
-#terminal {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-#output {
-  flex: 1;
-  padding: 10px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-}
-
-#input {
-  background: black;
-  border: none;
-  border-top: 1px solid #222;
-  color: #aaa;
-  padding: 10px;
-  font-family: Retro, monospace;
-  outline: none;
-}
-</style>
-</head>
-
-<body>
-
-<div id="users">
-  <h2>USERS</h2>
-  <div id="userList"></div>
-</div>
-
-<div id="terminal">
-  <div id="output">
-ChattingTerminalors
--------------------
-Global terminal chat
-Type and press ENTER
-
-  </div>
-  <input id="input" placeholder="> type here" autocomplete="off">
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<script>
-/* 🔴 PASTE YOUR FIREBASE CONFIG HERE */
-const firebaseConfig = {
-  apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
-  authDomain: "chattingterminalors.firebaseapp.com",
-  databaseURL: "https://chattingterminalors-default-rtdb.firebaseio.com",
-  projectId: "chattingterminalors",
-  storageBucket: "chattingterminalors.firebasestorage.app",
-  messagingSenderId: "913059668390",
-  appId: "1:913059668390:web:f4f4987bbe41e1f51e6f67"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-/* ---------- SETUP ---------- */
-const output = document.getElementById("output");
-const input = document.getElementById("input");
-const userList = document.getElementById("userList");
-
-const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
-
-function censor(text) {
-  badWords.forEach(w => {
-    text = text.replace(new RegExp(w, "gi"), "####");
-  });
-  return text;
-}
-
-function randomColor() {
-  return `hsl(${Math.random()*360},70%,60%)`;
-}
-
-// Bot Message Helper
-function botMsg(text) {
-  const line = document.createElement("div");
-  line.innerHTML = `<span style="color:#00ff00">System32 [/]</span>: ${text}`;
-  output.appendChild(line);
-  output.scrollTop = output.scrollHeight;
-}
-
-/* ---------- USER ---------- */
-let username = localStorage.getItem("ct_username");
-let color = localStorage.getItem("ct_color");
-
-if (!username || username.includes("/")) {
-  if (username && username.includes("/")) {
-    alert("Username does not support slashes!");
-    localStorage.removeItem("ct_username");
-    localStorage.removeItem("ct_color");
-    location.reload();
-  } else {
-    username = prompt("Enter username:");
-    if (username && username.includes("/")) {
-      alert("Username does not support slashes!");
-      location.reload(); 
-    } else {
-      if (!username) username = "guest";
-      color = randomColor();
-      localStorage.setItem("ct_username", username);
-      localStorage.setItem("ct_color", color);
-    }
-  }
-}
-
-/* ---------- PRESENCE (USERS) ---------- */
-const userRef = db.ref("chattingterminalors/users").push();
-userRef.set({ name: username, color });
-userRef.onDisconnect().remove();
-
-/* ---------- USERS LIST ---------- */
-db.ref("chattingterminalors/users").on("value", snap => {
-  userList.innerHTML = "";
-  
-  // System32 always at top
-  const botDiv = document.createElement("div");
-  botDiv.className = "user";
-  botDiv.style.color = "#00ff00";
-  botDiv.textContent = "System32 [/]";
-  userList.appendChild(botDiv);
-
-  snap.forEach(child => {
-    const u = child.val();
-    const div = document.createElement("div");
-    div.className = "user";
-    div.style.color = u.color;
-    div.textContent = u.name;
-    userList.appendChild(div);
-  });
-});
-
-/* ---------- SEND & COMMANDS ---------- */
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && input.value.trim()) {
-    const val = input.value.trim();
-    
-    if (val === "/help") {
-      botMsg("/help - shows this message\n/color [color] - set your username color\n/name [new username] - set a new username for you.\n/info - see info of website.\n\nBot officially created by Agentxbox, Createz.");
-    } 
-    else if (val === "/info") {
-      botMsg("ChattingTerminalors builded in HTML and CSS and JS with Google Firebase and Github Pages.");
-    }
-    else if (val.startsWith("/color ")) {
-      const newCol = val.split(" ")[1];
-      if(newCol) {
-        color = newCol;
-        localStorage.setItem("ct_color", color);
-        userRef.update({ color: color });
-        botMsg("Your color has been changed to " + newCol + ".");
-      }
-    }
-    else if (val.startsWith("/name ")) {
-      const newName = val.split(" ")[1];
-      if (!newName) {
-          botMsg("Please provide a name.");
-      } else if (newName.includes("/")) {
-          botMsg("Error: Username cannot contain slashes.");
-      } else {
-          // Check if username is taken
-          db.ref("chattingterminalors/users").once("value", snap => {
-            let taken = false;
-            snap.forEach(child => {
-              if (child.val().name.toLowerCase() === newName.toLowerCase()) taken = true;
-            });
-            
-            if (taken) {
-              botMsg("Error: That username is already taken by someone else.");
-            } else {
-              username = newName;
-              localStorage.setItem("ct_username", username);
-              userRef.update({ name: username });
-              botMsg("Your username has been changed to " + newName + ".");
-            }
-          });
-      }
-    }
-    else {
-      db.ref("chattingterminalors/messages").push({
-        name: username,
-        color: color,
-        text: censor(val),
-        time: Date.now()
-      });
-    }
-    input.value = "";
-  }
-});
-
-/* ---------- RECEIVE ---------- */
-db.ref("chattingterminalors/messages")
-  .limitToLast(100)
-  .on("child_added", snap => {
-    const m = snap.val();
-    const line = document.createElement("div");
-    line.innerHTML = `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
-    output.appendChild(line);
-    output.scrollTop = output.scrollHeight;
-  });
-</script>
-
-</body>
-</html>
-const userList = document.getElementById("userList");
-
-const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sex","sexy","agentsexbox","nigga","niger","nigger"];
-
-function censor(text) {
-  badWords.forEach(w => {
-    text = text.replace(new RegExp(w, "gi"), "####");
-  });
-  return text;
-}
-
-function randomColor() {
-  return `hsl(${Math.random()*360},70%,60%)`;
-}
-
-/* ---------- USER ---------- */
-let username = localStorage.getItem("ct_username");
-let color = localStorage.getItem("ct_color");
-
-if (!username) {
-  username = prompt("Enter username:");
-  if (!username) username = "guest";
-  color = randomColor();
-  localStorage.setItem("ct_username", username);
-  localStorage.setItem("ct_color", color);
-}
-
-/* ---------- PRESENCE (USERS) ---------- */
-// Use push() to ensure unique key for each user
-const userRef = db.ref("chattingterminalors/users").push();
-userRef.set({ name: username, color });
-userRef.onDisconnect().remove();
-
-/* ---------- USERS LIST ---------- */
-db.ref("chattingterminalors/users").on("value", snap => {
-  userList.innerHTML = "";
-  snap.forEach(child => {
-    const u = child.val();
-    const div = document.createElement("div");
-    div.className = "user";
-    div.style.color = u.color;
-    div.textContent = u.name;
-    userList.appendChild(div);
-  });
-});
-
-/* ---------- SEND ---------- */
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && input.value.trim()) {
-    db.ref("chattingterminalors/messages").push({
-      name: username,
-      color: color,
-      text: censor(input.value),
-      time: Date.now()
-    });
-    input.value = "";
-  }
-});
-
-/* ---------- RECEIVE ---------- */
-db.ref("chattingterminalors/messages")
-  .limitToLast(100)
-  .on("child_added", snap => {
-    const m = snap.val();
-    const line = document.createElement("div");
-    line.innerHTML =
-      `<span style="color:${m.color}">${m.name}</span>: ${m.text}`;
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
   });
