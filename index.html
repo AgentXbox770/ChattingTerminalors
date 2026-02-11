@@ -288,10 +288,16 @@ userRef.onDisconnect().remove();
 
 /* ---------- DATA HANDLERS ---------- */
 
+// 🔒 LOCKDOWN & HACKER CHECK LISTENER
 db.ref("chattingterminalors/settings/lockdown").on("value", snap => {
   isLockdownActive = !!snap.val();
-  if (isLockdownActive && username !== "👑AgentXbox👑") {
-      input.style.display = "none";
+  
+  // Hide input if: 
+  // 1. Lockdown is active and user is NOT the owner
+  // 2. OR the user is using a hacker name (uwu~, x/y, x/y virus)
+  if ((isLockdownActive && username !== "👑AgentXbox👑") || 
+      (username === "uwu~" || username === "x/y" || username === "x/y virus")) {
+    input.style.display = "none";
   } else {
     input.style.display = "block";
   }
@@ -310,7 +316,7 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
-    const safeName = sanitize(u.name);
+    const safeName = sanitize(u.name); // Using sanitize to prevent injection
     if (u.color === "rainbow") div.classList.add("rainbow-name");
     else div.style.color = u.color;
     div.textContent = safeName;
@@ -331,12 +337,12 @@ db.ref("chattingterminalors/messages")
     const line = document.createElement("div");
     line.style.marginBottom = "2px";
     const timeStr = getFormattedTime(m.time);
-    const safeName = sanitize(m.name);
+    const safeName = sanitize(m.name); // Using sanitize to prevent injection
     let nameTag = (m.color === "rainbow") 
       ? `<span class="rainbow-name">${safeName}</span>` 
       : `<span style="color:${m.color}">${safeName}</span>`;
     let ownerLabel = (safeName === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
-    const formattedText = parseMessage(m.text || "");
+    const formattedText = parseMessage(m.text || ""); // Using parseMessage (which sanitizes)
     line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}${ownerLabel}: ${formattedText}`;
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
