@@ -122,28 +122,18 @@ body {
   text-shadow: 0 0 5px rgba(255,255,255,0.2);
 }
 
-/* IFRAME & LINK STYLING */
+/* LINK STYLING */
 .chat-link {
   color: #55aaff;
   text-decoration: underline;
   cursor: pointer;
 }
 
-.embed-container {
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 16 / 9; /* Landscape */
-  margin: 10px 0;
-  border: 1px solid #333;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #111;
-}
-
-.embed-container iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
+/* TIMESTAMP STYLING */
+.timestamp {
+  color: #555;
+  font-size: 12px;
+  margin-right: 8px;
 }
 </style>
 </head>
@@ -194,8 +184,6 @@ const usersDiv = document.getElementById("users");
 const terminalDiv = document.getElementById("terminal");
 
 const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
-
-// 🔴 UPDATED DATE: Set to Feb 10, 2026 so uptime starts at 0
 const launchDate = new Date("2026-02-10T00:00:00").getTime(); 
 
 /* ---------- LOADING ANIMATION ---------- */
@@ -227,10 +215,18 @@ function randomColor() {
   return `hsl(${Math.random()*360},70%,60%)`;
 }
 
+function getFormattedTime(timestamp) {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  const hrs = date.getHours().toString().padStart(2, '0');
+  const mins = date.getMinutes().toString().padStart(2, '0');
+  return `[${hrs}:${mins}]`;
+}
+
 function botMsg(text) {
   const line = document.createElement("div");
-  line.style.margin = "5px 0";
-  line.innerHTML = `<span style="color:#00ff00">System32 [/]</span>: ${text}`;
+  line.style.margin = "2px 0";
+  const time = getFormattedTime();
+  line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${text}`;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
 }
@@ -244,19 +240,12 @@ function formatUptime(ms) {
   return `${days} days, ${hours} hours, ${minutes} minutes`;
 }
 
-/* ---------- LINK & EMBED LOGIC ---------- */
+/* ---------- LINK LOGIC ---------- */
 function parseMessage(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  let hasLink = false;
-  let firstUrl = "";
-
-  const html = text.replace(urlRegex, (url) => {
-    hasLink = true;
-    if (!firstUrl) firstUrl = url;
+  return text.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" class="chat-link">${url}</a>`;
   });
-
-  return { html, hasLink, firstUrl };
 }
 
 /* ---------- LOGIN ---------- */
@@ -264,23 +253,13 @@ let username = localStorage.getItem("ct_username");
 let color = localStorage.getItem("ct_color");
 
 if (!username || username.includes("/")) {
-  if (username && username.includes("/")) {
-    alert("Username does not support slashes!");
-    localStorage.removeItem("ct_username");
-    localStorage.removeItem("ct_color");
-    location.reload();
-  } else {
-    username = prompt("Enter username:");
-    if (username && username.includes("/")) {
-      alert("Username does not support slashes!");
-      location.reload(); 
-    } else {
-      if (!username) username = "guest" + Math.floor(Math.random()*1000);
-      color = randomColor();
-      localStorage.setItem("ct_username", username);
-      localStorage.setItem("ct_color", color);
-    }
+  username = prompt("Enter username:");
+  if (!username || username.includes("/")) {
+    username = "guest" + Math.floor(Math.random()*1000);
   }
+  color = randomColor();
+  localStorage.setItem("ct_username", username);
+  localStorage.setItem("ct_color", color);
 }
 
 const userRef = db.ref("chattingterminalors/users").push();
@@ -290,7 +269,6 @@ userRef.onDisconnect().remove();
 /* ---------- DATA HANDLERS ---------- */
 db.ref("chattingterminalors/users").on("value", snap => {
   hideLoading();
-
   userList.innerHTML = "";
   const botDiv = document.createElement("div");
   botDiv.className = "user";
@@ -302,13 +280,11 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
-    
     if (u.color === "rainbow") {
       div.classList.add("rainbow-name");
     } else {
       div.style.color = u.color;
     }
-
     div.textContent = u.name;
     userList.appendChild(div);
   });
@@ -319,24 +295,15 @@ db.ref("chattingterminalors/messages")
   .on("child_added", snap => {
     const m = snap.val();
     const line = document.createElement("div");
-    line.style.marginBottom = "15px";
+    line.style.marginBottom = "2px";
 
-    // Rainbow vs Static Color
+    const timeStr = getFormattedTime(m.time);
     let nameTag = (m.color === "rainbow") 
       ? `<span class="rainbow-name">${m.name}</span>` 
       : `<span style="color:${m.color}">${m.name}</span>`;
 
-    // Process Links
-    const { html, hasLink, firstUrl } = parseMessage(m.text);
-
-    line.innerHTML = `${nameTag}: ${html}`;
-
-    if (hasLink) {
-      const embedDiv = document.createElement("div");
-      embedDiv.className = "embed-container";
-      embedDiv.innerHTML = `<iframe src="${firstUrl}" allowfullscreen></iframe>`;
-      line.appendChild(embedDiv);
-    }
+    const formattedText = parseMessage(m.text);
+    line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}: ${formattedText}`;
 
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
@@ -350,17 +317,16 @@ input.addEventListener("keydown", e => {
     if (val === "/help") {
       botMsg(
         "/help - shows this message\n" +
-        "/color [color] - set your username color (or 'rainbow')\n" +
-        "/name [new username] - set a new username for you.\n" +
-        "/info - see info of website.\n" +
-        "/uptime - shows how long the website is public.\n" +
+        "/color [color] - set your username color\n" +
+        "/name [new username] - set a new username\n" +
+        "/info - see info of website\n" +
+        "/uptime - shows website uptime\n" +
         "/clear - clear all messages (local)\n" +
-        "/reset - resets your connection.\n\n" +
-        "Bot officially created by Agentxbox, Createz."
+        "/reset - resets your connection"
       );
     } 
     else if (val === "/info") {
-      botMsg("ChattingTerminalors built in HTML and CSS and JS with Google Firebase and Github Pages.");
+      botMsg("ChattingTerminalors built in HTML, CSS, JS, Firebase and Github Pages.");
     }
     else if (val === "/uptime") {
       const diff = Date.now() - launchDate;
@@ -385,28 +351,21 @@ input.addEventListener("keydown", e => {
     else if (val.startsWith("/name ")) {
       const parts = val.split(" ");
       const newName = parts.slice(1).join(" ");
-      
-      if (!newName) {
-          botMsg("Please provide a name.");
-      } else if (newName.includes("/")) {
-          botMsg("Error: Username cannot contain slashes.");
+      if (!newName || newName.includes("/")) {
+          botMsg("Invalid name.");
       } else {
           db.ref("chattingterminalors/users").once("value", snap => {
             let taken = false;
             snap.forEach(child => {
-              const uData = child.val();
-              if (uData.name && uData.name.toLowerCase() === newName.toLowerCase()) {
-                taken = true;
-              }
+              if (child.val().name?.toLowerCase() === newName.toLowerCase()) taken = true;
             });
-            
             if (taken) {
-              botMsg("Error: That username is already taken by someone else.");
+              botMsg("Error: Username taken.");
             } else {
               username = newName;
               localStorage.setItem("ct_username", username);
               userRef.update({ name: username });
-              botMsg("Your username has been changed to " + newName + ".");
+              botMsg("Username changed to " + newName + ".");
             }
           });
       }
