@@ -122,14 +122,12 @@ body {
   text-shadow: 0 0 5px rgba(255,255,255,0.2);
 }
 
-/* LINK STYLING */
 .chat-link {
   color: #55aaff;
   text-decoration: underline;
   cursor: pointer;
 }
 
-/* TIMESTAMP & TAG STYLING */
 .timestamp {
   color: #555;
   font-size: 12px;
@@ -146,9 +144,7 @@ body {
 </style>
 </head>
 
-<body>
-
-<div id="loading">Loading... |</div>
+<body oncontextmenu="return false;"> <div id="loading">Loading... |</div>
 
 <div id="users">
   <h2>USERS</h2>
@@ -169,6 +165,15 @@ Type /help for commands
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
+// Prevent F12 and Ctrl+Shift+I (Simple Inspection Block)
+document.onkeydown = function(e) {
+  if(e.keyCode == 123) return false;
+  if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
+  if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false;
+  if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
+  if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+};
+
 const firebaseConfig = {
   apiKey: "AIzaSyBHQIBxspDo0eF5aDA80FMziFB9Oo03jC8",
   authDomain: "chattingterminalors.firebaseapp.com",
@@ -213,19 +218,11 @@ function hideLoading() {
   }
 }
 
-/* ---------- SECURITY: ESCAPE HTML ---------- */
-function escapeHTML(str) {
-  const p = document.createElement("p");
-  p.textContent = str;
-  return p.innerHTML;
-}
-
-/* ---------- UTILS ---------- */
-function censor(text) {
-  badWords.forEach(w => {
-    text = text.replace(new RegExp(w, "gi"), "####");
-  });
-  return text;
+/* ---------- EMERGENCY SECURITY: THE SANITIZER ---------- */
+function sanitize(str) {
+  const div = document.createElement('div');
+  div.textContent = str; // This kills all <script> and HTML tags instantly
+  return div.innerHTML;
 }
 
 function randomColor() {
@@ -243,8 +240,8 @@ function botMsg(text) {
   const line = document.createElement("div");
   line.style.margin = "2px 0";
   const time = getFormattedTime();
-  // Safe bot message rendering
-  line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${escapeHTML(text).replace(/\n/g, '<br>')}`;
+  // We sanitize the bot text too just to be 100% safe
+  line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${sanitize(text).replace(/\n/g, '<br>')}`;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
 }
@@ -258,9 +255,12 @@ function formatUptime(ms) {
   return `${days} days, ${hours} hours, ${minutes} minutes`;
 }
 
-/* ---------- LINK LOGIC ---------- */
+/* ---------- SAFE LINK PROCESSING ---------- */
 function parseMessage(text) {
-  let safeText = escapeHTML(text);
+  // 1. Sanitize the whole string FIRST to disable all malicious code
+  let safeText = sanitize(text);
+  
+  // 2. ONLY THEN allow links to become clickable <a> tags
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return safeText.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" class="chat-link">${url}</a>`;
@@ -287,7 +287,6 @@ userRef.onDisconnect().remove();
 
 /* ---------- DATA HANDLERS ---------- */
 
-// 🔒 LOCKDOWN LISTENER
 db.ref("chattingterminalors/settings/lockdown").on("value", snap => {
   isLockdownActive = !!snap.val();
   if (isLockdownActive) {
@@ -312,10 +311,12 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
+    // Sanitize user names to prevent name-injection alerts
+    const safeName = sanitize(u.name);
     if (u.color === "rainbow") div.classList.add("rainbow-name");
     else div.style.color = u.color;
-    div.textContent = u.name;
-    if (u.name === "👑AgentXbox👑") {
+    div.textContent = safeName;
+    if (safeName === "👑AgentXbox👑") {
       const tag = document.createElement("span");
       tag.className = "owner-tag";
       tag.textContent = " [OWNER]";
@@ -332,12 +333,17 @@ db.ref("chattingterminalors/messages")
     const line = document.createElement("div");
     line.style.marginBottom = "2px";
     const timeStr = getFormattedTime(m.time);
-    const safeName = escapeHTML(m.name);
+    
+    // Names must be sanitized here too
+    const safeName = sanitize(m.name);
     let nameTag = (m.color === "rainbow") 
       ? `<span class="rainbow-name">${safeName}</span>` 
       : `<span style="color:${m.color}">${safeName}</span>`;
-    let ownerLabel = (m.name === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
-    const formattedText = parseMessage(m.text);
+    let ownerLabel = (safeName === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
+    
+    // The message text is sanitized inside parseMessage
+    const formattedText = parseMessage(m.text || "");
+    
     line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}${ownerLabel}: ${formattedText}`;
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
@@ -348,47 +354,30 @@ input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
-    // RESTORED FULL COMMAND LOGIC
     if (val === "/help") {
-      botMsg(
-        "/help - shows this message\n" +
-        "/color [color] - set your username color (or 'rainbow')\n" +
-        "/name [new username] - set a new username for you.\n" +
-        "/info - see info of website.\n" +
-        "/uptime - shows how long the website is public.\n" +
-        "/clear - clear all messages (local)\n" +
-        "/reset - resets your connection.\n" +
-        (username === "👑AgentXbox👑" ? "/lockdown - Toggle chat restriction.\n" : "") +
-        "\nBot officially created by Agentxbox, Createz."
-      );
+      botMsg("/help - shows this message\n/color [color] - set color\n/name [username] - set name\n/info - site info\n/uptime - site uptime\n/clear - clear screen\n/reset - reload\n" + (username === "👑AgentXbox👑" ? "/lockdown - Toggle restriction" : ""));
     } 
     else if (val === "/lockdown" && username === "👑AgentXbox👑") {
       const newState = !isLockdownActive;
       db.ref("chattingterminalors/settings/lockdown").set(newState);
-      if (newState) {
-        db.ref("chattingterminalors/messages").push({
-          name: "System32 [/]",
-          color: "#00ff00",
-          text: "The chat has been locked down due to maintenance.",
-          time: Date.now()
-        });
-      } else {
-        botMsg("Lockdown lifted. Everyone can chat again.");
-      }
+      db.ref("chattingterminalors/messages").push({
+        name: "System32 [/]",
+        color: "#00ff00",
+        text: newState ? "The chat has been locked down due to maintenance." : "Lockdown lifted.",
+        time: Date.now()
+      });
     }
     else if (val === "/info") {
-      botMsg("ChattingTerminalors built in HTML and CSS and JS with Google Firebase and Github Pages.");
+      botMsg("ChattingTerminalors built with Firebase.");
     }
     else if (val === "/uptime") {
-      const diff = Date.now() - launchDate;
-      botMsg("Website Uptime: " + formatUptime(diff));
+      botMsg("Website Uptime: " + formatUptime(Date.now() - launchDate));
     }
     else if (val === "/clear") {
-      output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat\nType /help for commands\n";
+      output.innerHTML = "Terminal cleared.\n";
     }
     else if (val === "/reset") {
-      botMsg("Resetting connection...");
-      setTimeout(() => location.reload(), 1000);
+      location.reload();
     }
     else if (val.startsWith("/color ")) {
       const newCol = val.split(" ")[1];
@@ -396,27 +385,21 @@ input.addEventListener("keydown", e => {
         color = newCol;
         localStorage.setItem("ct_color", color);
         userRef.update({ color: color });
-        botMsg("Your color has been changed to " + newCol + ".");
+        botMsg("Color updated.");
       }
     }
     else if (val.startsWith("/name ")) {
-      const parts = val.split(" ");
-      const newName = parts.slice(1).join(" ");
-      if (!newName || newName.includes("/")) {
-          botMsg("Invalid name.");
-      } else {
+      const newName = val.split(" ").slice(1).join(" ");
+      if (newName && !newName.includes("/")) {
           db.ref("chattingterminalors/users").once("value", snap => {
             let taken = false;
-            snap.forEach(child => {
-              if (child.val().name?.toLowerCase() === newName.toLowerCase()) taken = true;
-            });
-            if (taken) {
-              botMsg("Error: That username is already taken by someone else.");
-            } else {
+            snap.forEach(c => { if(c.val().name === newName) taken = true; });
+            if (taken) botMsg("Name taken.");
+            else {
               username = newName;
               localStorage.setItem("ct_username", username);
               userRef.update({ name: username });
-              botMsg("Your username has been changed to " + newName + ".");
+              botMsg("Name updated.");
             }
           });
       }
@@ -425,7 +408,7 @@ input.addEventListener("keydown", e => {
       db.ref("chattingterminalors/messages").push({
         name: username,
         color: color,
-        text: censor(val),
+        text: censor(val), // Censoring is fine, rendering is where it's safe now
         time: Date.now()
       });
     }
