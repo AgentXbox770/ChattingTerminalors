@@ -144,7 +144,9 @@ body {
 </style>
 </head>
 
-<body oncontextmenu="return false;"> <div id="loading">Loading... |</div>
+<body oncontextmenu="return false;">
+
+<div id="loading">Loading... |</div>
 
 <div id="users">
   <h2>USERS</h2>
@@ -165,7 +167,7 @@ Type /help for commands
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// Prevent F12 and Ctrl+Shift+I (Simple Inspection Block)
+// Prevent F12 and Ctrl+Shift+I
 document.onkeydown = function(e) {
   if(e.keyCode == 123) return false;
   if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
@@ -215,13 +217,16 @@ function hideLoading() {
     loadingScreen.style.display = "none";
     usersDiv.style.display = "block";
     terminalDiv.style.display = "flex";
+    
+    // AUTO-CLEAR ON JOIN LOGIC
+    output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat (Local History Cleared)\nType /help for commands\n";
   }
 }
 
-/* ---------- EMERGENCY SECURITY: THE SANITIZER ---------- */
+/* ---------- SECURITY: THE SANITIZER ---------- */
 function sanitize(str) {
   const div = document.createElement('div');
-  div.textContent = str; // This kills all <script> and HTML tags instantly
+  div.textContent = str; 
   return div.innerHTML;
 }
 
@@ -240,7 +245,6 @@ function botMsg(text) {
   const line = document.createElement("div");
   line.style.margin = "2px 0";
   const time = getFormattedTime();
-  // We sanitize the bot text too just to be 100% safe
   line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${sanitize(text).replace(/\n/g, '<br>')}`;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
@@ -257,10 +261,7 @@ function formatUptime(ms) {
 
 /* ---------- SAFE LINK PROCESSING ---------- */
 function parseMessage(text) {
-  // 1. Sanitize the whole string FIRST to disable all malicious code
   let safeText = sanitize(text);
-  
-  // 2. ONLY THEN allow links to become clickable <a> tags
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return safeText.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" class="chat-link">${url}</a>`;
@@ -311,7 +312,6 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
-    // Sanitize user names to prevent name-injection alerts
     const safeName = sanitize(u.name);
     if (u.color === "rainbow") div.classList.add("rainbow-name");
     else div.style.color = u.color;
@@ -333,17 +333,12 @@ db.ref("chattingterminalors/messages")
     const line = document.createElement("div");
     line.style.marginBottom = "2px";
     const timeStr = getFormattedTime(m.time);
-    
-    // Names must be sanitized here too
     const safeName = sanitize(m.name);
     let nameTag = (m.color === "rainbow") 
       ? `<span class="rainbow-name">${safeName}</span>` 
       : `<span style="color:${m.color}">${safeName}</span>`;
     let ownerLabel = (safeName === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
-    
-    // The message text is sanitized inside parseMessage
     const formattedText = parseMessage(m.text || "");
-    
     line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}${ownerLabel}: ${formattedText}`;
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
@@ -355,7 +350,17 @@ input.addEventListener("keydown", e => {
     const val = input.value.trim();
     
     if (val === "/help") {
-      botMsg("/help - shows this message\n/color [color] - set color\n/name [username] - set name\n/info - site info\n/uptime - site uptime\n/clear - clear screen\n/reset - reload\n" + (username === "👑AgentXbox👑" ? "/lockdown - Toggle restriction" : ""));
+      botMsg(
+        "/help - shows this message\n" +
+        "/color [color] - set your username color (or 'rainbow')\n" +
+        "/name [new username] - set a new username for you.\n" +
+        "/info - see info of website.\n" +
+        "/uptime - shows how long the website is public.\n" +
+        "/clear - clear all messages (local)\n" +
+        "/reset - resets your connection.\n" +
+        (username === "👑AgentXbox👑" ? "/lockdown - Toggle chat restriction.\n" : "") +
+        "\nBot officially created by Agentxbox, Createz."
+      );
     } 
     else if (val === "/lockdown" && username === "👑AgentXbox👑") {
       const newState = !isLockdownActive;
@@ -368,13 +373,13 @@ input.addEventListener("keydown", e => {
       });
     }
     else if (val === "/info") {
-      botMsg("ChattingTerminalors built with Firebase.");
+      botMsg("ChattingTerminalors built in HTML and CSS and JS with Google Firebase and Github Pages.");
     }
     else if (val === "/uptime") {
       botMsg("Website Uptime: " + formatUptime(Date.now() - launchDate));
     }
     else if (val === "/clear") {
-      output.innerHTML = "Terminal cleared.\n";
+      output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat\nType /help for commands\n";
     }
     else if (val === "/reset") {
       location.reload();
@@ -408,7 +413,7 @@ input.addEventListener("keydown", e => {
       db.ref("chattingterminalors/messages").push({
         name: username,
         color: color,
-        text: censor(val), // Censoring is fine, rendering is where it's safe now
+        text: censor(val),
         time: Date.now()
       });
     }
