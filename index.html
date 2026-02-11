@@ -54,7 +54,7 @@ body {
   padding: 10px;
   overflow-y: auto;
   background: #050505;
-  display: none; /* Hidden until loaded */
+  display: none; 
 }
 
 #users h2 {
@@ -76,7 +76,7 @@ body {
   position: relative;
   height: 100%;
   background: black;
-  display: none; /* Hidden until loaded */
+  display: none; 
   flex-direction: column;
 }
 
@@ -194,6 +194,8 @@ const terminalDiv = document.getElementById("terminal");
 const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
 const launchDate = new Date("2026-02-10T00:00:00").getTime(); 
 
+let isLockdownActive = false;
+
 /* ---------- LOADING ANIMATION ---------- */
 let loadFrame = 0;
 const loadChars = ["|", "/", "-"];
@@ -209,6 +211,13 @@ function hideLoading() {
     usersDiv.style.display = "block";
     terminalDiv.style.display = "flex";
   }
+}
+
+/* ---------- SECURITY: ESCAPE HTML ---------- */
+function escapeHTML(str) {
+  const p = document.createElement("p");
+  p.textContent = str;
+  return p.innerHTML;
 }
 
 /* ---------- UTILS ---------- */
@@ -234,7 +243,8 @@ function botMsg(text) {
   const line = document.createElement("div");
   line.style.margin = "2px 0";
   const time = getFormattedTime();
-  line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${text}`;
+  // Safe bot message rendering
+  line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${escapeHTML(text).replace(/\n/g, '<br>')}`;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
 }
@@ -250,8 +260,9 @@ function formatUptime(ms) {
 
 /* ---------- LINK LOGIC ---------- */
 function parseMessage(text) {
+  let safeText = escapeHTML(text);
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.replace(urlRegex, (url) => {
+  return safeText.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" class="chat-link">${url}</a>`;
   });
 }
@@ -275,6 +286,19 @@ userRef.set({ name: username, color: color });
 userRef.onDisconnect().remove();
 
 /* ---------- DATA HANDLERS ---------- */
+
+// 🔒 LOCKDOWN LISTENER
+db.ref("chattingterminalors/settings/lockdown").on("value", snap => {
+  isLockdownActive = !!snap.val();
+  if (isLockdownActive) {
+    if (username !== "👑AgentXbox👑") {
+      input.style.display = "none";
+    }
+  } else {
+    input.style.display = "block";
+  }
+});
+
 db.ref("chattingterminalors/users").on("value", snap => {
   hideLoading();
   userList.innerHTML = "";
@@ -288,23 +312,15 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
-    
-    if (u.color === "rainbow") {
-      div.classList.add("rainbow-name");
-    } else {
-      div.style.color = u.color;
-    }
-
+    if (u.color === "rainbow") div.classList.add("rainbow-name");
+    else div.style.color = u.color;
     div.textContent = u.name;
-    
-    // Add red OWNER tag if name is yours
     if (u.name === "👑AgentXbox👑") {
       const tag = document.createElement("span");
       tag.className = "owner-tag";
       tag.textContent = " [OWNER]";
       div.appendChild(tag);
     }
-
     userList.appendChild(div);
   });
 });
@@ -315,18 +331,14 @@ db.ref("chattingterminalors/messages")
     const m = snap.val();
     const line = document.createElement("div");
     line.style.marginBottom = "2px";
-
     const timeStr = getFormattedTime(m.time);
+    const safeName = escapeHTML(m.name);
     let nameTag = (m.color === "rainbow") 
-      ? `<span class="rainbow-name">${m.name}</span>` 
-      : `<span style="color:${m.color}">${m.name}</span>`;
-
-    // Add OWNER tag in chat history
+      ? `<span class="rainbow-name">${safeName}</span>` 
+      : `<span style="color:${m.color}">${safeName}</span>`;
     let ownerLabel = (m.name === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
-
     const formattedText = parseMessage(m.text);
     line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}${ownerLabel}: ${formattedText}`;
-
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
   });
@@ -336,19 +348,36 @@ input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
+    // RESTORED FULL COMMAND LOGIC
     if (val === "/help") {
       botMsg(
         "/help - shows this message\n" +
-        "/color [color] - set your username color\n" +
-        "/name [new username] - set a new username\n" +
-        "/info - see info of website\n" +
-        "/uptime - shows website uptime\n" +
+        "/color [color] - set your username color (or 'rainbow')\n" +
+        "/name [new username] - set a new username for you.\n" +
+        "/info - see info of website.\n" +
+        "/uptime - shows how long the website is public.\n" +
         "/clear - clear all messages (local)\n" +
-        "/reset - resets your connection"
+        "/reset - resets your connection.\n" +
+        (username === "👑AgentXbox👑" ? "/lockdown - Toggle chat restriction.\n" : "") +
+        "\nBot officially created by Agentxbox, Createz."
       );
     } 
+    else if (val === "/lockdown" && username === "👑AgentXbox👑") {
+      const newState = !isLockdownActive;
+      db.ref("chattingterminalors/settings/lockdown").set(newState);
+      if (newState) {
+        db.ref("chattingterminalors/messages").push({
+          name: "System32 [/]",
+          color: "#00ff00",
+          text: "The chat has been locked down due to maintenance.",
+          time: Date.now()
+        });
+      } else {
+        botMsg("Lockdown lifted. Everyone can chat again.");
+      }
+    }
     else if (val === "/info") {
-      botMsg("ChattingTerminalors built in HTML, CSS, JS, Firebase and Github Pages.");
+      botMsg("ChattingTerminalors built in HTML and CSS and JS with Google Firebase and Github Pages.");
     }
     else if (val === "/uptime") {
       const diff = Date.now() - launchDate;
@@ -382,12 +411,12 @@ input.addEventListener("keydown", e => {
               if (child.val().name?.toLowerCase() === newName.toLowerCase()) taken = true;
             });
             if (taken) {
-              botMsg("Error: Username taken.");
+              botMsg("Error: That username is already taken by someone else.");
             } else {
               username = newName;
               localStorage.setItem("ct_username", username);
               userRef.update({ name: username });
-              botMsg("Username changed to " + newName + ".");
+              botMsg("Your username has been changed to " + newName + ".");
             }
           });
       }
