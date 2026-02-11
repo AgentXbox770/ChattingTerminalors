@@ -129,11 +129,19 @@ body {
   cursor: pointer;
 }
 
-/* TIMESTAMP STYLING */
+/* TIMESTAMP & TAG STYLING */
 .timestamp {
   color: #555;
   font-size: 12px;
   margin-right: 8px;
+}
+
+.owner-tag {
+  color: #ff0000;
+  font-weight: bold;
+  margin-left: 5px;
+  font-size: 10px;
+  vertical-align: middle;
 }
 </style>
 </head>
@@ -280,12 +288,23 @@ db.ref("chattingterminalors/users").on("value", snap => {
     const u = child.val();
     const div = document.createElement("div");
     div.className = "user";
+    
     if (u.color === "rainbow") {
       div.classList.add("rainbow-name");
     } else {
       div.style.color = u.color;
     }
+
     div.textContent = u.name;
+    
+    // Add red OWNER tag if name is yours
+    if (u.name === "👑AgentXbox👑") {
+      const tag = document.createElement("span");
+      tag.className = "owner-tag";
+      tag.textContent = " [OWNER]";
+      div.appendChild(tag);
+    }
+
     userList.appendChild(div);
   });
 });
@@ -302,8 +321,11 @@ db.ref("chattingterminalors/messages")
       ? `<span class="rainbow-name">${m.name}</span>` 
       : `<span style="color:${m.color}">${m.name}</span>`;
 
+    // Add OWNER tag in chat history
+    let ownerLabel = (m.name === "👑AgentXbox👑") ? `<span class="owner-tag">[OWNER]</span>` : "";
+
     const formattedText = parseMessage(m.text);
-    line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}: ${formattedText}`;
+    line.innerHTML = `<span class="timestamp">${timeStr}</span>${nameTag}${ownerLabel}: ${formattedText}`;
 
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
