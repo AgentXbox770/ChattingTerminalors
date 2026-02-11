@@ -167,12 +167,10 @@ Type /help for commands
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// Prevent F12 and Ctrl+Shift+I
+// Prevent F12 and inspection
 document.onkeydown = function(e) {
   if(e.keyCode == 123) return false;
-  if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
-  if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false;
-  if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
+  if(e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) return false;
   if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
 };
 
@@ -218,13 +216,14 @@ function hideLoading() {
     usersDiv.style.display = "block";
     terminalDiv.style.display = "flex";
     
-    // AUTO-CLEAR ON JOIN LOGIC
+    // Auto-clear logic for your session
     output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat (Local History Cleared)\nType /help for commands\n";
   }
 }
 
 /* ---------- SECURITY: THE SANITIZER ---------- */
 function sanitize(str) {
+  if (!str) return "";
   const div = document.createElement('div');
   div.textContent = str; 
   return div.innerHTML;
@@ -245,6 +244,7 @@ function botMsg(text) {
   const line = document.createElement("div");
   line.style.margin = "2px 0";
   const time = getFormattedTime();
+  // Safe bot rendering with preserved line breaks
   line.innerHTML = `<span class="timestamp">${time}</span><span style="color:#00ff00">System32 [/]</span>: ${sanitize(text).replace(/\n/g, '<br>')}`;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
@@ -290,10 +290,8 @@ userRef.onDisconnect().remove();
 
 db.ref("chattingterminalors/settings/lockdown").on("value", snap => {
   isLockdownActive = !!snap.val();
-  if (isLockdownActive) {
-    if (username !== "👑AgentXbox👑") {
+  if (isLockdownActive && username !== "👑AgentXbox👑") {
       input.style.display = "none";
-    }
   } else {
     input.style.display = "block";
   }
@@ -349,6 +347,7 @@ input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim()) {
     const val = input.value.trim();
     
+    // RESTORED FULL ORIGINAL HELP MESSAGE
     if (val === "/help") {
       botMsg(
         "/help - shows this message\n" +
@@ -368,7 +367,7 @@ input.addEventListener("keydown", e => {
       db.ref("chattingterminalors/messages").push({
         name: "System32 [/]",
         color: "#00ff00",
-        text: newState ? "The chat has been locked down due to maintenance." : "Lockdown lifted.",
+        text: newState ? "The chat has been locked down due to maintenance." : "Lockdown lifted. Everyone can chat again.",
         time: Date.now()
       });
     }
@@ -376,13 +375,15 @@ input.addEventListener("keydown", e => {
       botMsg("ChattingTerminalors built in HTML and CSS and JS with Google Firebase and Github Pages.");
     }
     else if (val === "/uptime") {
-      botMsg("Website Uptime: " + formatUptime(Date.now() - launchDate));
+      const diff = Date.now() - launchDate;
+      botMsg("Website Uptime: " + formatUptime(diff));
     }
     else if (val === "/clear") {
       output.innerHTML = "ChattingTerminalors\n-------------------\nGlobal terminal chat\nType /help for commands\n";
     }
     else if (val === "/reset") {
-      location.reload();
+      botMsg("Resetting connection...");
+      setTimeout(() => location.reload(), 1000);
     }
     else if (val.startsWith("/color ")) {
       const newCol = val.split(" ")[1];
@@ -390,7 +391,7 @@ input.addEventListener("keydown", e => {
         color = newCol;
         localStorage.setItem("ct_color", color);
         userRef.update({ color: color });
-        botMsg("Color updated.");
+        botMsg("Your color has been changed to " + newCol + ".");
       }
     }
     else if (val.startsWith("/name ")) {
@@ -399,21 +400,22 @@ input.addEventListener("keydown", e => {
           db.ref("chattingterminalors/users").once("value", snap => {
             let taken = false;
             snap.forEach(c => { if(c.val().name === newName) taken = true; });
-            if (taken) botMsg("Name taken.");
+            if (taken) botMsg("Error: That username is already taken by someone else.");
             else {
               username = newName;
               localStorage.setItem("ct_username", username);
               userRef.update({ name: username });
-              botMsg("Name updated.");
+              botMsg("Your username has been changed to " + newName + ".");
             }
           });
       }
     }
     else {
+      // Normal Chatting
       db.ref("chattingterminalors/messages").push({
         name: username,
         color: color,
-        text: censor(val),
+        text: val, 
         time: Date.now()
       });
     }
