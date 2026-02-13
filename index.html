@@ -185,7 +185,7 @@ Global terminal chat
 Type /help for commands
   </div>
   <div id="typing-indicator"></div>
-  <input id="input" placeholder="> type here..." autocomplete="off">
+  <input id="input" placeholder="> type here... and whats your favorite snack?" autocomplete="off">
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -459,33 +459,40 @@ input.addEventListener("keydown", e => {
 /* FIXED: This links your escape function to the typing logic */
 const sanitize = escapeHTML; 
 
-/* ---------- TYPING INDICATOR LOGIC ---------- */
+/* ---------- GLOBAL TYPING INDICATOR ---------- */
 const typingIndicator = document.getElementById("typing-indicator");
 const typingRef = db.ref("chattingterminalors/typing");
 
+// 1. Send your status to the Global Database
 input.addEventListener("input", () => {
-  if (userRef && input.value.length > 0) {
-    typingRef.child(userRef.key).set({ 
-      name: username, 
-      color: color 
-    });
-    
-    clearTimeout(window.typingTimeout);
-    window.typingTimeout = setTimeout(() => {
+  if (userRef && userRef.key) {
+    if (input.value.length > 0) {
+      typingRef.child(userRef.key).set({ 
+        name: username, 
+        color: color 
+      });
+      
+      // Auto-remove after 3 seconds of silence
+      clearTimeout(window.typingTimeout);
+      window.typingTimeout = setTimeout(() => {
+        if(userRef) typingRef.child(userRef.key).remove();
+      }, 3000);
+    } else {
       typingRef.child(userRef.key).remove();
-    }, 3000);
-  } else if (userRef) {
-    typingRef.child(userRef.key).remove();
+    }
   }
 });
 
+// 2. Remove status when you click away or send
 input.addEventListener("blur", () => {
-  if (userRef) typingRef.child(userRef.key).remove();
+  if (userRef && userRef.key) typingRef.child(userRef.key).remove();
 });
 
+// 3. Listen for EVERYONE ELSE in the world
 typingRef.on("value", snap => {
   const typers = [];
   snap.forEach(child => {
+    // CRITICAL: This line hides YOUR name from YOUR screen
     if (userRef && child.key !== userRef.key) { 
       const data = child.val();
       const safeName = sanitize(data.name);
