@@ -184,7 +184,7 @@ ChattingTerminalors
 Global terminal chat
 Type /help for commands
   <div>
-  <input id="input" placeholder="> type here... and whats your favorite snack?" autocomplete="off">
+  <input id="input" placeholder="> type here... and whats your favorite snack?" autocomplete="on">
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -213,7 +213,7 @@ const loadingScreen = document.getElementById("loading");
 const usersDiv = document.getElementById("users");
 const terminalDiv = document.getElementById("terminal");
 
-const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger"];
+const badWords = ["fuck","shit","bitch","asshole","damn","pussy","sex","nya","cum","sexy","agentsexbox","nigga","niger","nigger","dick","s3x","x/y","x^y",];
 const launchDate = new Date("2026-02-10T00:00:00").getTime(); 
 
 let isLockdownActive = false;
@@ -245,7 +245,7 @@ setTimeout(() => {
     loadingScreen.innerHTML = "Connection Failed";
     
     // Optional: Log to console to help you debug
-    console.error("Firebase failed to load. Check API Key or Database URL.");
+    console.error("Firebase failed to load. Check API Key or Database URL. Please contact dotie_js in Discord or in Reddit, Idk whats the username for Reddit but the avatar is a doge hat with black clothes");
   }
 }, 10000); // 10000ms = 10 seconds
 
