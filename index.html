@@ -235,6 +235,20 @@ function hideLoading() {
   }
 }
 
+/* ---------- LOADING TIMEOUT (10s) ---------- */
+setTimeout(() => {
+  // Check if the loading screen is still there
+  if (loadingScreen.style.display !== "none") {
+    clearInterval(loadInterval); // Stop the spinning animation
+    loadingScreen.style.color = "#ff0000"; // Turn text red
+    loadingScreen.style.textAlign = "center";
+    loadingScreen.innerHTML = "Connection Failed";
+    
+    // Optional: Log to console to help you debug
+    console.error("Firebase failed to load. Check API Key or Database URL.");
+  }
+}, 10000); // 10000ms = 10 seconds
+
 /* ---------- SECURITY: ESCAPE HTML ---------- */
 function escapeHTML(str) {
   const p = document.createElement("p");
