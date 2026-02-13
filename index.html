@@ -456,12 +456,15 @@ input.addEventListener("keydown", e => {
   }
 });
 
+/* FIXED: This links your escape function to the typing logic */
+const sanitize = escapeHTML; 
+
 /* ---------- TYPING INDICATOR LOGIC ---------- */
 const typingIndicator = document.getElementById("typing-indicator");
 const typingRef = db.ref("chattingterminalors/typing");
 
 input.addEventListener("input", () => {
-  if (input.value.length > 0) {
+  if (userRef && input.value.length > 0) {
     typingRef.child(userRef.key).set({ 
       name: username, 
       color: color 
@@ -471,19 +474,19 @@ input.addEventListener("input", () => {
     window.typingTimeout = setTimeout(() => {
       typingRef.child(userRef.key).remove();
     }, 3000);
-  } else {
+  } else if (userRef) {
     typingRef.child(userRef.key).remove();
   }
 });
 
 input.addEventListener("blur", () => {
-  typingRef.child(userRef.key).remove();
+  if (userRef) typingRef.child(userRef.key).remove();
 });
 
 typingRef.on("value", snap => {
   const typers = [];
   snap.forEach(child => {
-    if (child.key !== userRef.key) { 
+    if (userRef && child.key !== userRef.key) { 
       const data = child.val();
       const safeName = sanitize(data.name);
       typers.push(`<span style="color:${data.color}">${safeName}</span>`);
@@ -498,6 +501,7 @@ typingRef.on("value", snap => {
     typingIndicator.innerHTML = "";
   }
 });
+  
 </script>
 
 </body>
