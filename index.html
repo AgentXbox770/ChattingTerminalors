@@ -469,36 +469,37 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* ---------- GLOBAL SYSTEM32 LOGIC ---------- */
+/* ---------- GLOBAL COMMAND & BOT LOGIC ---------- */
 
-// This replaces your local botMsg with a Global version
-// Every time this is called, EVERYONE sees the message.
-function globalBotMsg(msgText) {
+// This function pushes System32's reply to the global database
+function sendGlobalBotMsg(text) {
   db.ref("chattingterminalors/messages").push({
     name: "System32 [/]",
     color: "#00ff00",
-    text: msgText,
+    text: text,
     time: Date.now()
   });
 }
 
-// Optional: If you want to announce to the world whenever someone joins
-// (Only runs once when the user first connects)
-db.ref("chattingterminalors/messages").push({
-  name: "System32 [/]",
-  color: "#00ff00",
-  text: username + " has established a connection.",
-  time: Date.now()
-});
-
-/* ---------- COMMAND OVERRIDE ---------- */
-// This ensures that when commands are used, they are handled globally
-// without the "flicker" caused by local-only rendering.
-const originalBotMsg = botMsg; 
+// Redirect the local botMsg function to use the global database instead
 botMsg = function(text) {
-    // Redirects all future botMsg calls to the Global Database
-    globalBotMsg(text);
+  sendGlobalBotMsg(text);
 };
+
+// This ensures your OWN command text (like /help) is pushed to the database 
+// so everyone sees what you typed before the bot responds.
+input.removeEventListener("keydown", null); // Clear potential conflicts
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && input.value.trim().startsWith("/")) {
+    const cmdVal = input.value.trim();
+    db.ref("chattingterminalors/messages").push({
+      name: username,
+      color: color,
+      text: cmdVal,
+      time: Date.now()
+    });
+  }
+});
   
 </script>
 
