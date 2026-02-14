@@ -469,33 +469,29 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* ---------- GLOBAL COMMAND & BOT LOGIC ---------- */
+/* ---------- FINAL GLOBAL COMMANDS & BOT LOGIC ---------- */
 
-// This function pushes System32's reply to the global database
-function sendGlobalBotMsg(text) {
+// 1. Force the bot messages to be pushed to the global database
+botMsg = function(text) {
   db.ref("chattingterminalors/messages").push({
     name: "System32 [/]",
     color: "#00ff00",
     text: text,
     time: Date.now()
   });
-}
-
-// Redirect the local botMsg function to use the global database instead
-botMsg = function(text) {
-  sendGlobalBotMsg(text);
 };
 
-// This ensures your OWN command text (like /help) is pushed to the database 
-// so everyone sees what you typed before the bot responds.
-input.removeEventListener("keydown", null); // Clear potential conflicts
+// 2. Ensure your OWN command input is pushed to the database so everyone sees it
+// This captures the input BEFORE the original listener clears it
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && input.value.trim().startsWith("/")) {
-    const cmdVal = input.value.trim();
+    const cmdText = input.value.trim();
+    
+    // Push your command to the global chat
     db.ref("chattingterminalors/messages").push({
       name: username,
       color: color,
-      text: cmdVal,
+      text: cmdText,
       time: Date.now()
     });
   }
