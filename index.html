@@ -469,33 +469,30 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* ---------- FINAL GLOBAL COMMANDS & BOT LOGIC ---------- */
-
-// 1. Force the bot messages to be pushed to the global database
-botMsg = function(text) {
-  db.ref("chattingterminalors/messages").push({
-    name: "System32 [/]",
-    color: "#00ff00",
-    text: text,
-    time: Date.now()
-  });
+/* ---------- EMOTICON LOGIC FOR GITHUB ---------- */
+const emoticons = {
+  ":tree:": "tree.png",
+  ":plsss:": "plsss.png",
+  ":icant:": "icant.gif",
+  ":skull:": "rotatingskull.gif",
+  ":shocked:": "kryonax.gif"
 };
 
-// 2. Ensure your OWN command input is pushed to the database so everyone sees it
-// This captures the input BEFORE the original listener clears it
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && input.value.trim().startsWith("/")) {
-    const cmdText = input.value.trim();
-    
-    // Push your command to the global chat
-    db.ref("chattingterminalors/messages").push({
-      name: username,
-      color: color,
-      text: cmdText,
-      time: Date.now()
-    });
-  }
-});
+// Hook into the existing message parser
+const originalParseMessage = parseMessage;
+
+parseMessage = function(text) {
+  let html = originalParseMessage(text);
+  
+  Object.keys(emoticons).forEach(code => {
+    const imgFile = emoticons[code];
+    const regex = new RegExp(code, "g");
+    // height: 1.2em makes the emoji scale perfectly with your font size
+    html = html.replace(regex, `<img src="${imgFile}" alt="${code}" style="height:1.2em; vertical-align:middle; image-rendering: pixelated;">`);
+  });
+  
+  return html;
+};
   
 </script>
 
