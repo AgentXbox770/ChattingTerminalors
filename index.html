@@ -469,58 +469,36 @@ input.addEventListener("keydown", e => {
   }
 });
 
-/* FIXED: This links your escape function to the typing logic */
-const sanitize = escapeHTML; 
+/* ---------- GLOBAL SYSTEM32 LOGIC ---------- */
 
-/* ---------- GLOBAL TYPING INDICATOR ---------- */
-const typingIndicator = document.getElementById("typing-indicator");
-const typingRef = db.ref("chattingterminalors/typing");
-
-// 1. Send your status to the Global Database
-input.addEventListener("input", () => {
-  if (userRef && userRef.key) {
-    if (input.value.length > 0) {
-      typingRef.child(userRef.key).set({ 
-        name: username, 
-        color: color 
-      });
-      
-      // Auto-remove after 3 seconds of silence
-      clearTimeout(window.typingTimeout);
-      window.typingTimeout = setTimeout(() => {
-        if(userRef) typingRef.child(userRef.key).remove();
-      }, 3000);
-    } else {
-      typingRef.child(userRef.key).remove();
-    }
-  }
-});
-
-// 2. Remove status when you click away or send
-input.addEventListener("blur", () => {
-  if (userRef && userRef.key) typingRef.child(userRef.key).remove();
-});
-
-// 3. Listen for EVERYONE ELSE in the world
-typingRef.on("value", snap => {
-  const typers = [];
-  snap.forEach(child => {
-    // CRITICAL: This line hides YOUR name from YOUR screen
-    if (userRef && child.key !== userRef.key) { 
-      const data = child.val();
-      const safeName = sanitize(data.name);
-      typers.push(`<span style="color:${data.color}">${safeName}</span>`);
-    }
+// This replaces your local botMsg with a Global version
+// Every time this is called, EVERYONE sees the message.
+function globalBotMsg(msgText) {
+  db.ref("chattingterminalors/messages").push({
+    name: "System32 [/]",
+    color: "#00ff00",
+    text: msgText,
+    time: Date.now()
   });
+}
 
-  if (typers.length > 0) {
-    let text = typers.join(", ");
-    text += typers.length > 1 ? " are typing" : " is typing";
-    typingIndicator.innerHTML = `${text} <span class="dot">.</span><span class="dot" style="animation-delay:0.2s">.</span><span class="dot" style="animation-delay:0.4s">.</span>`;
-  } else {
-    typingIndicator.innerHTML = "";
-  }
+// Optional: If you want to announce to the world whenever someone joins
+// (Only runs once when the user first connects)
+db.ref("chattingterminalors/messages").push({
+  name: "System32 [/]",
+  color: "#00ff00",
+  text: username + " has established a connection.",
+  time: Date.now()
 });
+
+/* ---------- COMMAND OVERRIDE ---------- */
+// This ensures that when commands are used, they are handled globally
+// without the "flicker" caused by local-only rendering.
+const originalBotMsg = botMsg; 
+botMsg = function(text) {
+    // Redirects all future botMsg calls to the Global Database
+    globalBotMsg(text);
+};
   
 </script>
 
