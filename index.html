@@ -495,7 +495,9 @@ parseMessage = function(text) {
   return html;
 };
 
-/* ---------- LOREMIPSUMDOLOR.BOT [LR] - CLEAN VERSION ---------- */
+/* ---------- LOREMIPSUMDOLOR.BOT [LR] FULL MODULE ---------- */
+
+// 1. Bot Configuration
 const lrName = "loremipsumdolor.bot [lr]";
 const lrColor = "#6600FF"; // Electric Indigo
 
@@ -510,18 +512,18 @@ const loremLines = [
   "Ut foreshadowing enim ad minima veniam, quis nostrum exercitationem."
 ];
 
+// 2. The Bot Brain (Listening for messages)
 db.ref("chattingterminalors/messages").limitToLast(1).on("child_added", (snap) => {
     const msg = snap.val();
-    if (msg.name === lrName) return;
+    if (!msg || msg.name === lrName) return;
 
     const input = msg.text.toLowerCase().trim();
 
-    // 1. Help Command (Removed exclamation mark)
+    // Help Command
     if (input === "lrhelp") {
-        sendLrResponse("Commands: lr[1-8] (Generate lines), lrhelp (This menu).");
+        sendLrResponse("Commands: lr[1-8] (Generate lines), lrhelp (Help menu).");
     }
-
-    // 2. Logic for Lorem Lines (lr1, lr2, etc.)
+    // Line Generator (e.g., lr3)
     else if (/^lr\d+$/.test(input)) {
         const count = parseInt(input.replace("lr", ""));
         if (count > 0) {
@@ -535,6 +537,7 @@ db.ref("chattingterminalors/messages").limitToLast(1).on("child_added", (snap) =
     }
 });
 
+// 3. The Posting Function
 function sendLrResponse(text) {
     db.ref("chattingterminalors/messages").push({
         name: lrName,
@@ -543,6 +546,39 @@ function sendLrResponse(text) {
         time: Date.now()
     });
 }
+
+// 4. THE USER LIST INJECTION
+// We hook into your user list function to ensure the bot is always visible
+const originalUpdateUserList = typeof updateUserList !== 'undefined' ? updateUserList : null;
+
+if (originalUpdateUserList) {
+    updateUserList = function(users) {
+        // Run the original list update first
+        originalUpdateUserList(users);
+        
+        // Find your user list container (usually 'user-list' or 'online-users')
+        const listContainer = document.getElementById("user-list") || document.querySelector(".user-list");
+        
+        if (listContainer) {
+            // Create the Bot Element
+            const botEl = document.createElement("div");
+            botEl.className = "user-entry bot-user"; // Using your existing CSS classes
+            botEl.style.color = lrColor;
+            botEl.style.fontWeight = "bold";
+            botEl.innerHTML = `<span>${lrName}</span>`;
+
+            // Insert it at the top (below System32)
+            // If System32 is the first child, we insert after it
+            if (listContainer.firstChild) {
+                listContainer.insertBefore(botEl, listContainer.children[1] || null);
+            } else {
+                listContainer.appendChild(botEl);
+            }
+        }
+    };
+}
+
+console.log("LR Bot initialized and injected into User List.");
   
 </script>
 
