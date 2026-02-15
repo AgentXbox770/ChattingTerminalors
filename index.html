@@ -495,7 +495,7 @@ parseMessage = function(text) {
   return html;
 };
 
-/* ---------- LOREMIPSUMDOLOR.BOT [LR] FULL MODULE ---------- */
+/* ---------- LOREMIPSUMDOLOR.BOT [LR] - FULL MODULE ---------- */
 
 const lrName = "loremipsumdolor.bot [lr]";
 const lrColor = "#6600FF"; 
@@ -511,15 +511,19 @@ const loremLines = [
   "Ut foreshadowing enim ad minima veniam, quis nostrum exercitationem."
 ];
 
-// 1. CHAT LOGIC
+// 1. THE BRAIN: LISTENING FOR COMMANDS
 db.ref("chattingterminalors/messages").limitToLast(1).on("child_added", (snap) => {
     const msg = snap.val();
+    // Don't respond if it's the bot itself or if the message is empty
     if (!msg || msg.name === lrName) return;
+
     const input = msg.text.toLowerCase().trim();
 
+    // Command: lrhelp
     if (input === "lrhelp") {
         sendLrResponse("Commands: lr[1-8] (Generate lines), lrhelp (Help menu).");
     }
+    // Command: lr1, lr2, etc.
     else if (/^lr\d+$/.test(input)) {
         const count = parseInt(input.replace("lr", ""));
         if (count > 0) {
@@ -535,30 +539,35 @@ db.ref("chattingterminalors/messages").limitToLast(1).on("child_added", (snap) =
 
 function sendLrResponse(text) {
     db.ref("chattingterminalors/messages").push({
-        name: lrName, color: lrColor, text: text, time: Date.now()
+        name: lrName, 
+        color: lrColor, 
+        text: text, 
+        time: Date.now()
     });
 }
 
-// 2. USER LIST INJECTION (THE "FORCE" METHOD)
+// 2. THE UI: USER LIST INJECTION
 function injectLRBot() {
-    // Check all possible common IDs for your user list
     const list = document.getElementById("user-list") || 
                  document.getElementById("users") || 
-                 document.querySelector(".user-list") ||
-                 document.querySelector(".sidebar");
+                 document.querySelector(".user-list");
 
     if (list) {
-        // Check if the bot is already there so we don't add it 100 times
+        // Prevent duplicates
         if (!document.getElementById("lr-bot-entry")) {
             const botEl = document.createElement("div");
             botEl.id = "lr-bot-entry";
+            
+            // STYLING: Smaller font to match your terminal
             botEl.style.color = lrColor;
-            botEl.style.padding = "2px 0";
-            botEl.style.fontWeight = "bold";
+            botEl.style.fontSize = "13px"; 
+            botEl.style.fontFamily = "monospace";
+            botEl.style.padding = "2px 5px";
             botEl.innerHTML = `<span>${lrName}</span>`;
             
-            // Try to put it under System32 (usually index 1)
-            if (list.children.length > 1) {
+            // PLACEMENT: Below System32
+            // System32 is usually index 0, so we insert at index 1
+            if (list.children.length > 0) {
                 list.insertBefore(botEl, list.children[1]);
             } else {
                 list.appendChild(botEl);
@@ -567,8 +576,8 @@ function injectLRBot() {
     }
 }
 
-// Run the injection every 2 seconds to make sure it stays visible
-setInterval(injectLRBot, 2000);
+// Keep him in the list even if it refreshes
+setInterval(injectLRBot, 1000);
   
 </script>
 
