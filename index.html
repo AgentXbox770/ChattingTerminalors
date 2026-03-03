@@ -703,7 +703,19 @@ window.onloadCallback = function() {
   });
 };
 
-<script>
+const audio = new Audio('message.mp3');
+const originalChildAdded = db.ref("chattingterminalors/messages").on;
+db.ref("chattingterminalors/messages").on = function(eventType, callback, cancelCallbackOrContext, options) {
+    if (eventType === 'child_added') {
+        return originalChildAdded.call(this, eventType, function(snapshot) {
+            audio.play().catch(e => console.log('Audio playback failed:', e));
+            callback(snapshot);
+        }, cancelCallbackOrContext, options);
+    }
+    return originalChildAdded.apply(this, arguments);
+};
   
+</script>
+
 </body>
 </html>
