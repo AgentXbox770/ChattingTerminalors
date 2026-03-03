@@ -703,45 +703,17 @@ window.onloadCallback = function() {
   });
 };
 
-// BLOCKS ALL KEYBOARD SHORTCUTS + RIGHT CLICK
-document.addEventListener('keydown', function(e) {
-    // F12
-    if(e.key === 'F12' || e.keyCode === 123) {
-        e.preventDefault();
-        return false;
+const audio = new Audio('message.mp3');
+const originalChildAdded = db.ref("chattingterminalors/messages").on;
+db.ref("chattingterminalors/messages").on = function(eventType, callback, cancelCallbackOrContext, options) {
+    if (eventType === 'child_added') {
+        return originalChildAdded.call(this, eventType, function(snapshot) {
+            audio.play().catch(e => console.log('Audio playback failed:', e));
+            callback(snapshot);
+        }, cancelCallbackOrContext, options);
     }
-    // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
-    if(e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) {
-        e.preventDefault();
-        return false;
-    }
-    // Ctrl+U (view source)
-    if(e.ctrlKey && e.key === 'u') {
-        e.preventDefault();
-        return false;
-    }
-    // Ctrl+Shift+I (alternative keycode method)
-    if(e.ctrlKey && e.shiftKey && e.keyCode === 73) {
-        e.preventDefault();
-        return false;
-    }
-});
-
-// BLOCK RIGHT CLICK
-document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    return false;
-});
-
-// DETECT CONSOLE OPEN AND REDIRECT
-let element = new Image();
-Object.defineProperty(element, 'id', {
-    get: function() {
-        window.location.href = 'about:blank';
-        document.body.innerHTML = '<h1>Access Denied</h1>';
-    }
-});
-console.log(element);
+    return originalChildAdded.apply(this, arguments);
+};
   
 </script>
 
