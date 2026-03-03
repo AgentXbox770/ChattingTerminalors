@@ -714,6 +714,113 @@ db.ref("chattingterminalors/messages").on = function(eventType, callback, cancel
     }
     return originalChildAdded.apply(this, arguments);
 };
+
+function checkGhostTime() {
+    const now = new Date();
+    if (now.getHours() === 3 && now.getMinutes() === 33) {
+        const ghost = document.createElement('div');
+        ghost.innerHTML = '👻';
+        ghost.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: -50px;
+            font-size: 40px;
+            opacity: 0.4;
+            z-index: 9999;
+            pointer-events: none;
+            animation: floatGhost 2s linear forwards;
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes floatGhost {
+                0% { left: -50px; opacity: 0.4; transform: translateY(0); }
+                25% { transform: translateY(-10px); }
+                50% { transform: translateY(10px); }
+                75% { transform: translateY(-5px); }
+                100% { left: 100%; opacity: 0; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+        document.body.appendChild(ghost);
+        
+        setTimeout(() => ghost.remove(), 2000);
+    }
+}
+
+// Check every minute
+setInterval(checkGhostTime, 60000);
+checkGhostTime();
+
+// Clock in top right corner
+const clock = document.createElement('div');
+clock.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    color: white;
+    font-family: Retro, monospace;
+    font-size: 14px;
+    z-index: 10002;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+`;
+document.body.appendChild(clock);
+
+function updateClock() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+    
+    clock.textContent = timeString;
+    
+    if (hours === '03' && minutes === '33') {
+        clock.style.color = '#ff0000';
+        clock.style.textShadow = '0 0 5px rgba(255,0,0,0.5)';
+    } else {
+        clock.style.color = 'white';
+        clock.style.textShadow = 'none';
+    }
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+// The Watcher
+const botUserElement = document.querySelector('.user[style*="color: #00ff00"]');
+if (botUserElement) {
+    const originalBotColor = botUserElement.style.color;
+    
+    db.ref("chattingterminalors/messages").limitToLast(1).on("child_added", snap => {
+        const msg = snap.val();
+        if (msg.text && msg.text.toLowerCase().includes('agentxbox')) {
+            botUserElement.style.color = 'gold';
+            botUserElement.style.textShadow = '0 0 5px rgba(255,215,0,0.5)';
+            
+            setTimeout(() => {
+                botUserElement.style.color = originalBotColor;
+                botUserElement.style.textShadow = 'none';
+            }, 5000);
+        }
+    });
+}
+
+// Secret Birthday Message
+const today = new Date();
+if (today.getMonth() === 1 && today.getDate() === 10) {
+    const style = document.createElement('style');
+    style.textContent = `
+        .timestamp::after {
+            content: " 🎂";
+            font-size: 12px;
+            margin-left: 2px;
+        }
+    `;
+    document.head.appendChild(style);
+}
   
 </script>
 
